@@ -33,7 +33,7 @@ if('serviceWorker' in navigator){
   // Network-first for HTML (so updates load automatically on next open),
   // cache-first for everything else (scripts, CDN assets stay fast offline).
   const sw=`
-const C='fitness-v13';
+const C='fitness-v14';
 self.addEventListener('install',e=>{self.skipWaiting();});
 self.addEventListener('activate',e=>{
   e.waitUntil(
@@ -295,10 +295,15 @@ JSON format:
 
   const res = await fetch("https://api.anthropic.com/v1/messages",{
     method:"POST",
-    headers:{"Content-Type":"application/json"},
+    headers:{
+      "Content-Type":"application/json",
+      "anthropic-version":"2023-06-01",
+      "anthropic-dangerous-direct-browser-access":"true"
+    },
     body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1200,messages:[{role:"user",content:prompt}]})
   });
   const data = await res.json();
+  if(data.error) throw new Error(data.error.message);
   const text = data.content?.find(b=>b.type==="text")?.text||"{}";
   return JSON.parse(text.replace(/```json|```/g,"").trim());
 }
@@ -767,144 +772,65 @@ function getOverallAvg1RMHistory(workouts, exercises) {
 
 // ── Muscle Group Strength Over Time ──────────────────────────────────────────
 // Shows the best est. 1RM per muscle group plotted over time as individual lines
-function MuscleGroupStrengthChart({workouts, exercises}){
-  const [selected, setSelected] = useState(null); // null = all groups, or group key
-  const sorted = [...workouts].sort((a,b)=>a.date.localeCompare(b.date));
 
-  // Build history per group: per workout date, best 1RM for primary exercises in that group
+// ── Per-Group Strength Charts ─────────────────────────────────────────────────
+// One LineChart per muscle group, showing best est. 1RM over time for that group
+function GroupStrengthCharts({workouts, exercises}){
+  const sorted = [...workouts].sort((a,b)=>a.date.localeCompare(b.date));
+  const [openGroup, setOpenGroup] = useState(null);
+
   const groupHistories = RADAR_GROUPS.map(g=>{
-    const points = [];
+    const byDate = {};
     for(const w of sorted){
       const exs = getBestPerExercise([w], exercises, g.muscles);
       if(!exs.length) continue;
       const best = Math.max(...exs.map(e=>e.best1rm));
-      if(best>0) points.push({date:w.date, value:best});
+      if(best>0) byDate[w.date] = Math.max(byDate[w.date]||0, best);
     }
+    const points = Object.entries(byDate).sort(([a],[b])=>a.localeCompare(b)).map(([date,value])=>({date,value}));
     return {key:g.key, label:g.label, color:g.color, points};
   }).filter(g=>g.points.length>0);
 
-  const active = selected ? groupHistories.filter(g=>g.key===selected) : groupHistories;
+  if(!groupHistories.length) return null;
 
   return(
-    <div style={{background:"#0f172a",borderRadius:16,border:"1px solid #1e293b",overflow:"hidden"}}>
-      <div style={{padding:"12px 14px 10px",borderBottom:"1px solid #1e293b",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-        <div>
-          <div style={{fontSize:13,fontWeight:700,color:"#e2e8f0"}}>
-            {selected ? RADAR_GROUPS.find(g=>g.key===selected)?.label+" Strength" : "Muscle Group Strength"}
+    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+      <div style={{fontSize:11,fontWeight:700,color:"#475569",textTransform:"uppercase",letterSpacing:"0.08em"}}>Strength by Muscle Group</div>
+      {groupHistories.map(g=>{
+        const isOpen = openGroup===g.key;
+        const latest = g.points[g.points.length-1]?.value;
+        const first  = g.points[0]?.value;
+        const delta  = latest && first ? Math.round(latest-first) : null;
+        return(
+          <div key={g.key} style={{background:"#0f172a",borderRadius:16,border:"1px solid #1e293b",overflow:"hidden"}}>
+            <button onClick={()=>setOpenGroup(isOpen?null:g.key)}
+              style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",textAlign:"left"}}>
+              <div style={{width:10,height:10,borderRadius:"50%",background:g.color,flexShrink:0}}/>
+              <div style={{flex:1}}>
+                <div style={{fontSize:14,fontWeight:700,color:"#f1f5f9"}}>{g.label}</div>
+                <div style={{fontSize:11,color:"#475569",marginTop:1}}>
+                  Best 1RM: <span style={{color:g.color,fontWeight:700}}>{latest}kg</span>
+                  {delta!==null&&delta!==0&&<span style={{color:delta>0?"#22c55e":"#ef4444",marginLeft:6}}>{delta>0?"+":""}{delta}kg from first log</span>}
+                </div>
+              </div>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{transform:isOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s",flexShrink:0}}>
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            {isOpen&&(
+              <div style={{padding:"4px 14px 14px"}}>
+                <LineChart points={g.points} color={g.color} height={130} showDots={g.points.length<=20} yLabel="kg"/>
+              </div>
+            )}
           </div>
-          <div style={{fontSize:11,color:"#475569",marginTop:2}}>Best est. 1RM (kg) over time</div>
-        </div>
-        {selected&&(
-          <button onClick={()=>setSelected(null)} style={{background:"#1e293b",border:"none",borderRadius:8,padding:"5px 10px",color:"#94a3b8",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>← All</button>
-        )}
-      </div>
-      <div style={{padding:"14px 14px 8px"}}>
-        {active.length===0
-          ? <div style={{height:120,display:"flex",alignItems:"center",justifyContent:"center",color:"#334155",fontSize:12}}>Log workouts to see strength history</div>
-          : selected
-            ? <LineChart points={active[0].points} color={active[0].color} height={130} showDots={active[0].points.length<=20} yLabel="kg"/>
-            : <MultiLineChart groups={active} height={130}/>
-        }
-      </div>
-      {/* Group chips */}
-      <div style={{borderTop:"1px solid #1e293b",padding:"8px 12px 12px"}}>
-        <div style={{fontSize:10,fontWeight:700,color:"#475569",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Tap to focus a group</div>
-        <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-          {groupHistories.map(g=>{
-            const latest = g.points[g.points.length-1]?.value;
-            const isActive = selected===g.key;
-            return(
-              <button key={g.key} onClick={()=>setSelected(isActive?null:g.key)}
-                style={{background:isActive?g.color:`${g.color}18`,border:`1px solid ${isActive?g.color:g.color+"44"}`,borderRadius:10,padding:"6px 10px",cursor:"pointer",fontFamily:"inherit",display:"flex",flexDirection:"column",alignItems:"flex-start",gap:1,transition:"all 0.15s"}}>
-                <span style={{fontSize:12,fontWeight:700,color:isActive?"#fff":g.color}}>{g.label}</span>
-                {latest&&<span style={{fontSize:10,color:isActive?"rgba(255,255,255,0.7)":"#64748b"}}>{latest}kg</span>}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+        );
+      })}
     </div>
   );
 }
 
-// Multi-line canvas chart for all groups simultaneously
-function MultiLineChart({groups, height=130}){
-  const ref=useRef(null);
-  const wrapRef=useRef(null);
-
-  function draw(){
-    const canvas=ref.current;
-    if(!canvas||!groups.length)return;
-    const dpr=window.devicePixelRatio||1;
-    const W=wrapRef.current?wrapRef.current.clientWidth:320;
-    const H=height;
-    canvas.width=W*dpr; canvas.height=H*dpr;
-    canvas.style.width=W+"px"; canvas.style.height=H+"px";
-    const ctx=canvas.getContext("2d");
-    ctx.scale(dpr,dpr); ctx.clearRect(0,0,W,H);
-
-    // Collect all points to get global min/max and date range
-    const allPts = groups.flatMap(g=>g.points);
-    if(!allPts.length) return;
-    const allVals = allPts.map(p=>p.value);
-    const mn=Math.min(...allVals), mx=Math.max(...allVals);
-    const allDates = [...new Set(allPts.map(p=>p.date))].sort();
-    const pad={t:10,b:24,l:38,r:10};
-    const iW=W-pad.l-pad.r, iH=H-pad.t-pad.b;
-    const sx=d=>{
-      const i=allDates.indexOf(d);
-      return allDates.length<2?pad.l+iW/2:pad.l+iW*i/(allDates.length-1);
-    };
-    const sy=v=>pad.t+(mx===mn?iH/2:iH*(1-(v-mn)/(mx-mn)));
-
-    // Grid lines
-    for(let t=0;t<=3;t++){
-      const v=mn+(mx-mn)*t/3;
-      const y=sy(v);
-      ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);
-      ctx.strokeStyle="#1e293b";ctx.lineWidth=1;ctx.stroke();
-      ctx.fillStyle="#475569";ctx.font="bold 9px sans-serif";ctx.textAlign="right";ctx.textBaseline="middle";
-      ctx.fillText(Math.round(v)+"kg",pad.l-3,y);
-    }
-    // X labels
-    const fmtShort=iso=>{const d=new Date(iso);return d.toLocaleDateString("en-GB",{day:"2-digit",month:"short"});};
-    ctx.fillStyle="#475569";ctx.font="9px sans-serif";ctx.textBaseline="top";
-    if(allDates.length>1){
-      ctx.textAlign="left";ctx.fillText(fmtShort(allDates[0]),pad.l,H-pad.b+4);
-      ctx.textAlign="right";ctx.fillText(fmtShort(allDates[allDates.length-1]),W-pad.r,H-pad.b+4);
-    }
-    // Draw each group's line
-    for(const g of groups){
-      if(g.points.length<1)continue;
-      ctx.beginPath();
-      g.points.forEach((p,i)=>{
-        const x=sx(p.date), y=sy(p.value);
-        i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
-      });
-      ctx.strokeStyle=g.color;ctx.lineWidth=2;ctx.lineJoin="round";ctx.stroke();
-      // Last dot
-      const last=g.points[g.points.length-1];
-      ctx.beginPath();ctx.arc(sx(last.date),sy(last.value),3,0,Math.PI*2);
-      ctx.fillStyle=g.color;ctx.fill();
-    }
-  }
-
-  useEffect(()=>{
-    draw();
-    if(!wrapRef.current)return;
-    const ro=new ResizeObserver(()=>draw());
-    ro.observe(wrapRef.current);
-    return()=>ro.disconnect();
-  },[groups,height]);
-
-  return(
-    <div ref={wrapRef} style={{width:"100%"}}>
-      <canvas ref={ref} style={{display:"block"}}/>
-    </div>
-  );
-}
-
-
+// ── Strength Trend Panel (per-exercise drilldown) ─────────────────────────────
+function StrengthTrendPanel({workouts, exercises}){
   const [selected, setSelected] = useState(null);
 
   const loggedExercises = exercises.filter(ex => getExerciseHistory(workouts, ex.id).length >= 1);
@@ -938,7 +864,6 @@ function MultiLineChart({groups, height=130}){
         }
       </div>
 
-      {/* Exercise chips — always visible so user knows they can drill down */}
       <div style={{borderTop:"1px solid #1e293b",padding:"8px 12px 12px"}}>
         <div style={{fontSize:10,fontWeight:700,color:"#475569",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>
           {loggedExercises.length ? "Tap to drill into a specific exercise →" : "Log workouts to see exercise breakdown"}
@@ -1172,7 +1097,7 @@ function StatsTab({workouts,exercises,bodyweight,onSetBW,isOnline}){
         )}
 
         {/* Muscle group strength history */}
-        {workouts.length>0&&<MuscleGroupStrengthChart workouts={workouts} exercises={exercises}/>}
+        {workouts.length>0&&<GroupStrengthCharts workouts={workouts} exercises={exercises}/>}
 
         {/* Strength trend + exercise drilldown */}
         <StrengthTrendPanel workouts={workouts} exercises={exercises}/>
@@ -1875,7 +1800,7 @@ function FitnessAssistant({exercises}){
     try{
       const res=await fetch("https://api.anthropic.com/v1/messages",{
         method:"POST",
-        headers:{"Content-Type":"application/json"},
+        headers:{"Content-Type":"application/json","anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
         body:JSON.stringify({
           model:"claude-sonnet-4-20250514",
           max_tokens:1000,
@@ -2345,7 +2270,7 @@ function SettingsTab({data, onRestore, isOnline}){
         </div>
 
         <div style={{textAlign:"center",padding:"8px 0 4px"}}>
-          <span style={{fontSize:11,color:"#334155"}}>Fitness Tracker · v13</span>
+          <span style={{fontSize:11,color:"#334155"}}>Fitness Tracker · v14</span>
         </div>
 
       </div>
