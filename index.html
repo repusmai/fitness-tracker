@@ -33,7 +33,7 @@ if('serviceWorker' in navigator){
   // Network-first for HTML (so updates load automatically on next open),
   // cache-first for everything else (scripts, CDN assets stay fast offline).
   const sw=`
-const C='fitness-v12';
+const C='fitness-v13';
 self.addEventListener('install',e=>{self.skipWaiting();});
 self.addEventListener('activate',e=>{
   e.waitUntil(
@@ -765,10 +765,146 @@ function getOverallAvg1RMHistory(workouts, exercises) {
   }).filter(Boolean);
 }
 
-// ── Strength Trend Panel ───────────────────────────────────────────────────────
-// Overview: avg est. 1RM (kg) across all muscle groups over time
-// Drill-down: per-exercise est. 1RM (kg) over time — tap any exercise chip
-function StrengthTrendPanel({workouts, exercises}){
+// ── Muscle Group Strength Over Time ──────────────────────────────────────────
+// Shows the best est. 1RM per muscle group plotted over time as individual lines
+function MuscleGroupStrengthChart({workouts, exercises}){
+  const [selected, setSelected] = useState(null); // null = all groups, or group key
+  const sorted = [...workouts].sort((a,b)=>a.date.localeCompare(b.date));
+
+  // Build history per group: per workout date, best 1RM for primary exercises in that group
+  const groupHistories = RADAR_GROUPS.map(g=>{
+    const points = [];
+    for(const w of sorted){
+      const exs = getBestPerExercise([w], exercises, g.muscles);
+      if(!exs.length) continue;
+      const best = Math.max(...exs.map(e=>e.best1rm));
+      if(best>0) points.push({date:w.date, value:best});
+    }
+    return {key:g.key, label:g.label, color:g.color, points};
+  }).filter(g=>g.points.length>0);
+
+  const active = selected ? groupHistories.filter(g=>g.key===selected) : groupHistories;
+
+  return(
+    <div style={{background:"#0f172a",borderRadius:16,border:"1px solid #1e293b",overflow:"hidden"}}>
+      <div style={{padding:"12px 14px 10px",borderBottom:"1px solid #1e293b",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div>
+          <div style={{fontSize:13,fontWeight:700,color:"#e2e8f0"}}>
+            {selected ? RADAR_GROUPS.find(g=>g.key===selected)?.label+" Strength" : "Muscle Group Strength"}
+          </div>
+          <div style={{fontSize:11,color:"#475569",marginTop:2}}>Best est. 1RM (kg) over time</div>
+        </div>
+        {selected&&(
+          <button onClick={()=>setSelected(null)} style={{background:"#1e293b",border:"none",borderRadius:8,padding:"5px 10px",color:"#94a3b8",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>← All</button>
+        )}
+      </div>
+      <div style={{padding:"14px 14px 8px"}}>
+        {active.length===0
+          ? <div style={{height:120,display:"flex",alignItems:"center",justifyContent:"center",color:"#334155",fontSize:12}}>Log workouts to see strength history</div>
+          : selected
+            ? <LineChart points={active[0].points} color={active[0].color} height={130} showDots={active[0].points.length<=20} yLabel="kg"/>
+            : <MultiLineChart groups={active} height={130}/>
+        }
+      </div>
+      {/* Group chips */}
+      <div style={{borderTop:"1px solid #1e293b",padding:"8px 12px 12px"}}>
+        <div style={{fontSize:10,fontWeight:700,color:"#475569",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Tap to focus a group</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+          {groupHistories.map(g=>{
+            const latest = g.points[g.points.length-1]?.value;
+            const isActive = selected===g.key;
+            return(
+              <button key={g.key} onClick={()=>setSelected(isActive?null:g.key)}
+                style={{background:isActive?g.color:`${g.color}18`,border:`1px solid ${isActive?g.color:g.color+"44"}`,borderRadius:10,padding:"6px 10px",cursor:"pointer",fontFamily:"inherit",display:"flex",flexDirection:"column",alignItems:"flex-start",gap:1,transition:"all 0.15s"}}>
+                <span style={{fontSize:12,fontWeight:700,color:isActive?"#fff":g.color}}>{g.label}</span>
+                {latest&&<span style={{fontSize:10,color:isActive?"rgba(255,255,255,0.7)":"#64748b"}}>{latest}kg</span>}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Multi-line canvas chart for all groups simultaneously
+function MultiLineChart({groups, height=130}){
+  const ref=useRef(null);
+  const wrapRef=useRef(null);
+
+  function draw(){
+    const canvas=ref.current;
+    if(!canvas||!groups.length)return;
+    const dpr=window.devicePixelRatio||1;
+    const W=wrapRef.current?wrapRef.current.clientWidth:320;
+    const H=height;
+    canvas.width=W*dpr; canvas.height=H*dpr;
+    canvas.style.width=W+"px"; canvas.style.height=H+"px";
+    const ctx=canvas.getContext("2d");
+    ctx.scale(dpr,dpr); ctx.clearRect(0,0,W,H);
+
+    // Collect all points to get global min/max and date range
+    const allPts = groups.flatMap(g=>g.points);
+    if(!allPts.length) return;
+    const allVals = allPts.map(p=>p.value);
+    const mn=Math.min(...allVals), mx=Math.max(...allVals);
+    const allDates = [...new Set(allPts.map(p=>p.date))].sort();
+    const pad={t:10,b:24,l:38,r:10};
+    const iW=W-pad.l-pad.r, iH=H-pad.t-pad.b;
+    const sx=d=>{
+      const i=allDates.indexOf(d);
+      return allDates.length<2?pad.l+iW/2:pad.l+iW*i/(allDates.length-1);
+    };
+    const sy=v=>pad.t+(mx===mn?iH/2:iH*(1-(v-mn)/(mx-mn)));
+
+    // Grid lines
+    for(let t=0;t<=3;t++){
+      const v=mn+(mx-mn)*t/3;
+      const y=sy(v);
+      ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);
+      ctx.strokeStyle="#1e293b";ctx.lineWidth=1;ctx.stroke();
+      ctx.fillStyle="#475569";ctx.font="bold 9px sans-serif";ctx.textAlign="right";ctx.textBaseline="middle";
+      ctx.fillText(Math.round(v)+"kg",pad.l-3,y);
+    }
+    // X labels
+    const fmtShort=iso=>{const d=new Date(iso);return d.toLocaleDateString("en-GB",{day:"2-digit",month:"short"});};
+    ctx.fillStyle="#475569";ctx.font="9px sans-serif";ctx.textBaseline="top";
+    if(allDates.length>1){
+      ctx.textAlign="left";ctx.fillText(fmtShort(allDates[0]),pad.l,H-pad.b+4);
+      ctx.textAlign="right";ctx.fillText(fmtShort(allDates[allDates.length-1]),W-pad.r,H-pad.b+4);
+    }
+    // Draw each group's line
+    for(const g of groups){
+      if(g.points.length<1)continue;
+      ctx.beginPath();
+      g.points.forEach((p,i)=>{
+        const x=sx(p.date), y=sy(p.value);
+        i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+      });
+      ctx.strokeStyle=g.color;ctx.lineWidth=2;ctx.lineJoin="round";ctx.stroke();
+      // Last dot
+      const last=g.points[g.points.length-1];
+      ctx.beginPath();ctx.arc(sx(last.date),sy(last.value),3,0,Math.PI*2);
+      ctx.fillStyle=g.color;ctx.fill();
+    }
+  }
+
+  useEffect(()=>{
+    draw();
+    if(!wrapRef.current)return;
+    const ro=new ResizeObserver(()=>draw());
+    ro.observe(wrapRef.current);
+    return()=>ro.disconnect();
+  },[groups,height]);
+
+  return(
+    <div ref={wrapRef} style={{width:"100%"}}>
+      <canvas ref={ref} style={{display:"block"}}/>
+    </div>
+  );
+}
+
+
   const [selected, setSelected] = useState(null);
 
   const loggedExercises = exercises.filter(ex => getExerciseHistory(workouts, ex.id).length >= 1);
@@ -1035,18 +1171,24 @@ function StatsTab({workouts,exercises,bodyweight,onSetBW,isOnline}){
           </div>
         )}
 
-        {/* Strength trend */}
+        {/* Muscle group strength history */}
+        {workouts.length>0&&<MuscleGroupStrengthChart workouts={workouts} exercises={exercises}/>}
+
+        {/* Strength trend + exercise drilldown */}
         <StrengthTrendPanel workouts={workouts} exercises={exercises}/>
 
         {/* Summary stats */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-          {[{label:"Workouts",value:workouts.length,sub:"total"},{label:"Total Sets",value:totalSets,sub:"all time"},{label:"Avg Sets",value:workouts.length?Math.round(totalSets/workouts.length):0,sub:"per session"},{label:"Exercises",value:workouts.reduce((a,w)=>a+w.entries.length,0),sub:"logged"}].map(s=>(
-            <div key={s.label} style={{background:"#0f172a",borderRadius:14,padding:"14px",border:"1px solid #1e293b"}}>
-              <div style={{fontSize:24,fontWeight:900,color:"#f1f5f9"}}>{s.value}</div>
-              <div style={{fontSize:12,fontWeight:700,color:"#64748b",marginTop:2}}>{s.label}</div>
-              <div style={{fontSize:10,color:"#334155",marginTop:1}}>{s.sub}</div>
-            </div>
-          ))}
+        <div>
+          <div style={{fontSize:11,fontWeight:700,color:"#475569",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>Lifetime Stats</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            {[{label:"Workouts",value:workouts.length,sub:"total"},{label:"Total Sets",value:totalSets,sub:"all time"},{label:"Avg Sets",value:workouts.length?Math.round(totalSets/workouts.length):0,sub:"per session"},{label:"Exercises",value:workouts.reduce((a,w)=>a+w.entries.length,0),sub:"logged"}].map(s=>(
+              <div key={s.label} style={{background:"#0f172a",borderRadius:14,padding:"14px",border:"1px solid #1e293b"}}>
+                <div style={{fontSize:24,fontWeight:900,color:"#f1f5f9"}}>{s.value}</div>
+                <div style={{fontSize:12,fontWeight:700,color:"#64748b",marginTop:2}}>{s.label}</div>
+                <div style={{fontSize:10,color:"#334155",marginTop:1}}>{s.sub}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -1412,25 +1554,46 @@ function Detail({workout,exercises,onBack,onEdit,onDelete,onSaveTemplate,existin
             const ex=exercises.find(e=>e.id===entry.exerciseId);
             const primaryColor=ex?.muscles?.[0]?getColorForMuscle(ex.muscles[0]):"#6366f1";
             return(
-              <div key={i} style={{background:"#0f172a",borderRadius:16,overflow:"hidden",border:"1px solid #1e293b"}}>
-                <div style={{padding:"12px 14px",borderLeft:`3px solid ${primaryColor}`}}>
+              <div key={i} style={{background:"#0f172a",borderRadius:16,border:"1px solid #1e293b"}}>
+                <div style={{padding:"12px 14px",borderLeft:`3px solid ${primaryColor}`,borderRadius:"16px 16px 0 0"}}>
                   <div style={{fontWeight:700,fontSize:15,color:"#f1f5f9",marginBottom:4}}>{ex?.name}</div>
-                  {ex?.muscles&&<MusclePills muscles={ex.muscles} max={4}/>}
+                  {ex&&(
+                    <div style={{display:"flex",flexWrap:"wrap",gap:3}}>
+                      {(ex.primaryMuscles||[ex.muscles?.[0]].filter(Boolean)).map(m=>(
+                        <span key={m} style={{padding:"2px 7px",borderRadius:20,fontSize:11,fontWeight:700,background:`${getColorForMuscle(m)}33`,color:getColorForMuscle(m)}}>{m}</span>
+                      ))}
+                      {(ex.secondaryMuscles||ex.muscles?.slice(1)||[]).slice(0,2).map(m=>(
+                        <span key={m} style={{padding:"2px 7px",borderRadius:20,fontSize:11,fontWeight:600,background:"#1e293b",color:"#475569"}}>{m}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 {entry.note&&<div style={{margin:"0 14px 8px",background:"#1e293b",borderRadius:8,padding:"8px 12px",fontSize:13,color:"#94a3b8"}}>{entry.note}</div>}
                 <div style={{padding:"0 14px 14px"}}>
-                  <div style={{display:"grid",gridTemplateColumns:"28px 1fr 1fr 1fr",gap:6,marginBottom:6}}>
-                    <span style={{fontSize:10,fontWeight:700,color:"#475569",textAlign:"center"}}>#</span>
-                    {["kg","Reps","RIR"].map(h=><span key={h} style={{fontSize:10,fontWeight:700,color:"#475569",textAlign:"center",textTransform:"uppercase"}}>{h}</span>)}
+                  {/* Header row */}
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4,marginTop:8}}>
+                    <span style={{width:24,flexShrink:0,fontSize:10,fontWeight:700,color:"#475569",textAlign:"center"}}>#</span>
+                    <span style={{flex:1,fontSize:10,fontWeight:700,color:"#475569",textAlign:"center",textTransform:"uppercase"}}>kg</span>
+                    <span style={{flex:1,fontSize:10,fontWeight:700,color:"#475569",textAlign:"center",textTransform:"uppercase"}}>Reps</span>
+                    <span style={{width:44,flexShrink:0,fontSize:10,fontWeight:700,color:"#475569",textAlign:"center",textTransform:"uppercase"}}>RIR</span>
+                    <span style={{width:36,flexShrink:0,fontSize:10,fontWeight:700,color:"#475569",textAlign:"center",textTransform:"uppercase"}}>Side</span>
                   </div>
-                  {entry.sets.map((s,j)=>(
-                    <div key={j} style={{display:"grid",gridTemplateColumns:"28px 1fr 1fr 1fr",gap:6,padding:"6px 0",borderBottom:j<entry.sets.length-1?"1px solid #1e293b":"none"}}>
-                      <span style={{textAlign:"center",fontSize:12,color:"#475569",fontWeight:700}}>{j+1}</span>
-                      <span style={{textAlign:"center",fontSize:14,color:"#f1f5f9",fontWeight:600}}>{s.weight||"—"}</span>
-                      <span style={{textAlign:"center",fontSize:14,color:"#f1f5f9",fontWeight:600}}>{s.reps||"—"}</span>
-                      <span style={{textAlign:"center",fontSize:14,color:"#94a3b8"}}>{s.rir!==""?s.rir:"—"}</span>
-                    </div>
-                  ))}
+                  {entry.sets.map((s,j)=>{
+                    const sideLabel = s.side==="L"?"L":s.side==="R"?"R":"—";
+                    const sideColor = s.side==="L"||s.side==="R"?"#6366f1":"#334155";
+                    const rirDisplay = s.rir==="failure"
+                      ? <span style={{fontSize:10,fontWeight:800,color:"#f87171"}}>FAIL</span>
+                      : s.rir!==""&&s.rir!=null ? s.rir : "—";
+                    return(
+                      <div key={j} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 0",borderBottom:j<entry.sets.length-1?"1px solid #1e293b":"none"}}>
+                        <span style={{width:24,flexShrink:0,textAlign:"center",fontSize:12,color:"#475569",fontWeight:700}}>{j+1}</span>
+                        <span style={{flex:1,textAlign:"center",fontSize:14,color:"#f1f5f9",fontWeight:600}}>{s.weight||"—"}</span>
+                        <span style={{flex:1,textAlign:"center",fontSize:14,color:"#f1f5f9",fontWeight:600}}>{s.reps||"—"}</span>
+                        <span style={{width:44,flexShrink:0,textAlign:"center",fontSize:13,color:"#94a3b8"}}>{rirDisplay}</span>
+                        <span style={{width:36,flexShrink:0,textAlign:"center",fontSize:12,fontWeight:700,color:sideColor}}>{sideLabel}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -2182,7 +2345,7 @@ function SettingsTab({data, onRestore, isOnline}){
         </div>
 
         <div style={{textAlign:"center",padding:"8px 0 4px"}}>
-          <span style={{fontSize:11,color:"#334155"}}>Fitness Tracker · v12</span>
+          <span style={{fontSize:11,color:"#334155"}}>Fitness Tracker · v13</span>
         </div>
 
       </div>
