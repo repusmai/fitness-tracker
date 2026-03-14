@@ -33,7 +33,7 @@ if('serviceWorker' in navigator){
   // Network-first for HTML (so updates load automatically on next open),
   // cache-first for everything else (scripts, CDN assets stay fast offline).
   const sw=`
-const C='fitness-v14';
+const C='fitness-v15';
 self.addEventListener('install',e=>{self.skipWaiting();});
 self.addEventListener('activate',e=>{
   e.waitUntil(
@@ -302,10 +302,17 @@ JSON format:
     },
     body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1200,messages:[{role:"user",content:prompt}]})
   });
+  if(!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
   const data = await res.json();
-  if(data.error) throw new Error(data.error.message);
-  const text = data.content?.find(b=>b.type==="text")?.text||"{}";
-  return JSON.parse(text.replace(/```json|```/g,"").trim());
+  if(data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+  const rawText = data.content?.find(b=>b.type==="text")?.text;
+  if(!rawText) throw new Error("Empty response from API");
+  // Strip any markdown fencing and extract JSON object
+  const cleaned = rawText.replace(/^```[\w]*\n?/gm,"").replace(/```$/gm,"").trim();
+  // Find the first { ... } block in case there's any preamble
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+  if(!jsonMatch) throw new Error("No JSON found in response: " + cleaned.slice(0,100));
+  return JSON.parse(jsonMatch[0]);
 }
 
 
@@ -980,7 +987,8 @@ function StatsTab({workouts,exercises,bodyweight,onSetBW,isOnline}){
       setRadarSource("fresh");
       saveRadarCache({key:cacheKey, radar});
     } catch(e){
-      setRadarError("fetch_failed");
+      console.error("Radar fetch error:", e);
+      setRadarError(e?.message || "fetch_failed");
     }
     setRadarLoading(false);
   }
@@ -1046,8 +1054,12 @@ function StatsTab({workouts,exercises,bodyweight,onSetBW,isOnline}){
             ? <div style={{textAlign:"center",padding:"40px 0",color:"#475569",fontSize:14}}>Log workouts to see your radar</div>
             : !isOnline&&!radarData
               ? <div style={{textAlign:"center",padding:"40px 0",color:"#f59e0b",fontSize:13}}>Radar requires internet on first load</div>
-              : radarError==="fetch_failed"&&!radarData
-                ? <div style={{textAlign:"center",padding:"30px 0",color:"#ef4444",fontSize:13}}>Failed to load — <button onClick={()=>buildRadar(true)} style={{background:"none",border:"none",color:"#6366f1",cursor:"pointer",fontFamily:"inherit",fontSize:13,textDecoration:"underline"}}>retry</button></div>
+              : radarError&&!radarData
+                ? <div style={{textAlign:"center",padding:"20px 0",display:"flex",flexDirection:"column",gap:8}}>
+                    <div style={{color:"#ef4444",fontSize:13}}>Failed to load</div>
+                    <div style={{color:"#475569",fontSize:11,padding:"0 16px",wordBreak:"break-all"}}>{radarError}</div>
+                    <button onClick={()=>buildRadar(true)} style={{background:"none",border:"none",color:"#6366f1",cursor:"pointer",fontFamily:"inherit",fontSize:13,textDecoration:"underline"}}>retry</button>
+                  </div>
                 : radarData
                   ? <Radar data={radar}/>
                   : <div style={{textAlign:"center",padding:"40px 0",color:"#475569",fontSize:13}}>Loading baselines…</div>
@@ -2270,7 +2282,7 @@ function SettingsTab({data, onRestore, isOnline}){
         </div>
 
         <div style={{textAlign:"center",padding:"8px 0 4px"}}>
-          <span style={{fontSize:11,color:"#334155"}}>Fitness Tracker · v14</span>
+          <span style={{fontSize:11,color:"#334155"}}>Fitness Tracker · v15</span>
         </div>
 
       </div>
