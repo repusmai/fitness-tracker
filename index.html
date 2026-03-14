@@ -33,7 +33,7 @@ if('serviceWorker' in navigator){
   // Network-first for HTML (so updates load automatically on next open),
   // cache-first for everything else (scripts, CDN assets stay fast offline).
   const sw=`
-const C='fitness-v7';
+const C='fitness-v8';
 self.addEventListener('install',e=>{self.skipWaiting();});
 self.addEventListener('activate',e=>{
   e.waitUntil(
@@ -301,12 +301,13 @@ function templateToWorkout(template) {
     date: today(),
     name: template.name,
     notes: "",
-    entries: template.entries.map(entry => ({
+    entries: template.entries.map((entry,i) => ({
+      _key: `${entry.exerciseId}_${i}_${Date.now()}`,
       exerciseId: entry.exerciseId,
       note: "",
-      sets: entry.sets.length > 0
+      sets: entry.sets && entry.sets.length > 0
         ? entry.sets.map(s => ({ weight: s.weight, reps: "", rir: "" }))
-        : [{ weight: "", reps: "", rir: "" }]  // always at least 1 set
+        : [{ weight: "", reps: "", rir: "" }]
     }))
   };
 }
@@ -1093,9 +1094,12 @@ function Picker({exercises, onPick, onClose, onCreateExercise}){
 
 // ── Workout Editor ────────────────────────────────────────────────────────────
 function Editor({workout,exercises,onSave,onCancel}){
-  const [w,setW]=useState(workout||{id:Date.now().toString(),date:today(),name:"",entries:[],notes:""});
+  const [w,setW]=useState(()=>{
+    const base = workout || {id:Date.now().toString(), date:today(), name:"", entries:[], notes:""};
+    return {...base, entries: base.entries.map((e,i)=>({_key:e._key||`${e.exerciseId}_${i}_init`, ...e}))};
+  });
   const [pick,setPick]=useState(false);
-  const addEx=ex=>{setW(p=>({...p,entries:[...p.entries,{exerciseId:ex.id,sets:[{weight:"",reps:"",rir:""}],note:""}]}));setPick(false);};
+  const addEx=ex=>{setW(p=>({...p,entries:[...p.entries,{_key:`${ex.id}_${Date.now()}`,exerciseId:ex.id,sets:[{weight:"",reps:"",rir:""}],note:""}]}));setPick(false);};
   const updE=(i,e)=>setW(p=>({...p,entries:p.entries.map((x,j)=>j===i?e:x)}));
   const remE=i=>setW(p=>({...p,entries:p.entries.filter((_,j)=>j!==i)}));
   const moveE=(i,dir)=>setW(p=>{
@@ -1131,7 +1135,7 @@ function Editor({workout,exercises,onSave,onCancel}){
         <div>
           <div style={{fontSize:11,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:"#94a3b8",marginBottom:8}}>Exercises ({w.entries.length})</div>
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
-            {w.entries.map((entry,i)=><WECard key={entry.exerciseId+i} entry={entry} exercises={exercises} onChange={e=>updE(i,e)} onRemove={()=>remE(i)} onMoveUp={()=>moveE(i,-1)} onMoveDown={()=>moveE(i,1)} isFirst={i===0} isLast={i===w.entries.length-1}/>)}
+            {w.entries.map((entry,i)=><WECard key={entry._key||i} entry={entry} exercises={exercises} onChange={e=>updE(i,e)} onRemove={()=>remE(i)} onMoveUp={()=>moveE(i,-1)} onMoveDown={()=>moveE(i,1)} isFirst={i===0} isLast={i===w.entries.length-1}/>)}
           </div>
           <button onClick={()=>setPick(true)} style={{marginTop:w.entries.length?10:0,width:"100%",padding:"14px",background:"#0f172a",border:"2px dashed #334155",borderRadius:16,cursor:"pointer",color:"#6366f1",fontSize:14,fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
             <Icon name="plus" size={18} color="#6366f1"/> Add Exercise
@@ -1946,7 +1950,7 @@ function SettingsTab({data, onRestore}){
         </div>
 
         <div style={{textAlign:"center",padding:"8px 0 4px"}}>
-          <span style={{fontSize:11,color:"#334155"}}>Fitness Tracker · v7</span>
+          <span style={{fontSize:11,color:"#334155"}}>Fitness Tracker · v8</span>
         </div>
 
       </div>
@@ -1972,7 +1976,7 @@ function QuickLog({exercises, templates, onSave, onCancel, onCreateExercise}){
     setStep("workout");
   }
   function addEx(ex){
-    setWorkout(p=>({...p, entries:[...p.entries, {exerciseId:ex.id, sets:[{weight:"",reps:"",rir:""}], note:""}]}));
+    setWorkout(p=>({...p, entries:[...p.entries, {_key:`${ex.id}_${Date.now()}`, exerciseId:ex.id, sets:[{weight:"",reps:"",rir:""}], note:""}]}));
     setPick(false);
   }
   function updE(i,e){ setWorkout(p=>({...p, entries:p.entries.map((x,j)=>j===i?e:x)})); }
@@ -2067,7 +2071,7 @@ function QuickLog({exercises, templates, onSave, onCancel, onCreateExercise}){
           </div>
         )}
         {workout.entries.map((entry,i)=>(
-          <WECard key={entry.exerciseId+i} entry={entry} exercises={exercises} onChange={e=>updE(i,e)} onRemove={()=>remE(i)} onMoveUp={()=>moveE(i,-1)} onMoveDown={()=>moveE(i,1)} isFirst={i===0} isLast={i===workout.entries.length-1}/>
+          <WECard key={entry._key||i} entry={entry} exercises={exercises} onChange={e=>updE(i,e)} onRemove={()=>remE(i)} onMoveUp={()=>moveE(i,-1)} onMoveDown={()=>moveE(i,1)} isFirst={i===0} isLast={i===workout.entries.length-1}/>
         ))}
         {/* Add exercise button */}
         <button onClick={()=>setPick(true)} style={{width:"100%",padding:"14px",background:"#0f172a",border:"2px dashed #1e293b",borderRadius:16,cursor:"pointer",color:"#6366f1",fontSize:14,fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
