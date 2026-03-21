@@ -33,7 +33,7 @@ if('serviceWorker' in navigator){
   // Network-first for HTML (so updates load automatically on next open),
   // cache-first for everything else (scripts, CDN assets stay fast offline).
   const sw=`
-const C='fitness-v17';
+const C='fitness-v19';
 self.addEventListener('install',e=>{self.skipWaiting();});
 self.addEventListener('activate',e=>{
   e.waitUntil(
@@ -2086,7 +2086,7 @@ function SettingsTab({data, onRestore, isOnline}){
         </div>
 
         <div style={{textAlign:"center",padding:"8px 0 4px"}}>
-          <span style={{fontSize:11,color:"#334155"}}>Fitness Tracker · v17</span>
+          <span style={{fontSize:11,color:"#334155"}}>Fitness Tracker · v19</span>
         </div>
 
       </div>
@@ -2102,6 +2102,8 @@ function QuickLog({exercises, templates, workouts, onSave, onCancel, onCreateExe
   const [workout, setWorkout] = useState(()=>{ const d=loadDraft(); return d?.workout||null; });
   const [pick, setPick] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  // Must be declared unconditionally — hooks can't be called after a conditional return
+  const {ref:sessionScrollRef, hidden:sessionHeaderHidden} = useScrollHide();
 
   // Persist draft whenever workout or step changes
   useEffect(()=>{
@@ -2140,7 +2142,7 @@ function QuickLog({exercises, templates, workouts, onSave, onCancel, onCreateExe
       </div>
       <div style={{flex:1,overflowY:"auto",padding:"20px 16px",display:"flex",flexDirection:"column",gap:14}}>
 
-        {/* Resume draft banner — shown if a draft exists but we're back at pick */}
+        {/* Resume draft banner */}
         {workout&&workout.entries&&(
           <button onClick={()=>setStep("workout")} style={{background:"rgba(34,197,94,0.1)",border:"1px solid rgba(34,197,94,0.3)",borderRadius:16,padding:"14px 16px",cursor:"pointer",fontFamily:"inherit",textAlign:"left",width:"100%",display:"flex",alignItems:"center",gap:12}}>
             <div style={{width:40,height:40,borderRadius:10,background:"rgba(34,197,94,0.2)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
@@ -2191,9 +2193,8 @@ function QuickLog({exercises, templates, workouts, onSave, onCancel, onCreateExe
   );
 
   // ── Step 2: focused workout session ──
-  if(step!=="workout" || !workout) return null;
-  const totalSets = countSets(workout.entries.map(e=>({...e,sets:e.sets.filter(s=>s.weight||s.reps)})), exercises);
-  const {ref:sessionScrollRef, hidden:sessionHeaderHidden} = useScrollHide();
+  // workout is guaranteed non-null here since step==="workout" only set alongside setWorkout
+  const totalSets = workout ? countSets(workout.entries.map(e=>({...e,sets:e.sets.filter(s=>s.weight||s.reps)})), exercises) : 0;
 
   return(
     <div style={{display:"flex",flexDirection:"column",height:"100%",background:"#0a0f1e"}}>
@@ -2203,7 +2204,7 @@ function QuickLog({exercises, templates, workouts, onSave, onCancel, onCreateExe
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
           <button onClick={()=>setConfirmDiscard(true)} style={{background:"none",border:"none",cursor:"pointer",color:"#64748b",padding:4}}><Icon name="close" size={20}/></button>
           <span style={{flex:1,fontSize:12,color:"#475569",fontWeight:600}}>
-            {workout.entries.length} exercise{workout.entries.length!==1?"s":""} · {fmtSets(totalSets)} set{totalSets!==1?"s":""} logged
+            {workout?.entries.length||0} exercise{workout?.entries.length!==1?"s":""} · {fmtSets(totalSets)} set{totalSets!==1?"s":""} logged
           </span>
           <Btn variant="green" onClick={finish} style={{padding:"8px 16px",fontSize:13,borderRadius:12}}>
             <Icon name="check" size={15} color="#fff"/> Finish
@@ -2211,13 +2212,13 @@ function QuickLog({exercises, templates, workouts, onSave, onCancel, onCreateExe
         </div>
         <div style={{display:"flex",gap:8}}>
           <input
-            value={workout.name}
+            value={workout?.name||""}
             onChange={e=>setWorkout(p=>({...p,name:e.target.value}))}
             placeholder="Workout name…"
             style={{flex:1,background:"#0f172a",border:"1px solid #1e293b",borderRadius:10,color:"#f1f5f9",padding:"8px 12px",fontSize:14,fontWeight:700,outline:"none",fontFamily:"inherit"}}
           />
           <DateInput
-            value={workout.date}
+            value={workout?.date||today()}
             onChange={d=>setWorkout(p=>({...p,date:d}))}
             style={{background:"#0f172a",border:"1px solid #1e293b",borderRadius:10,color:"#94a3b8",padding:"8px 10px",fontSize:13,outline:"none",fontFamily:"inherit",width:120}}
           />
@@ -2227,15 +2228,14 @@ function QuickLog({exercises, templates, workouts, onSave, onCancel, onCreateExe
 
       {/* Exercise cards */}
       <div ref={sessionScrollRef} style={{flex:1,overflowY:"auto",padding:"14px 16px 120px",display:"flex",flexDirection:"column",gap:12}}>
-        {workout.entries.length===0&&(
+        {(!workout?.entries.length)&&(
           <div style={{textAlign:"center",padding:"50px 20px",color:"#334155",fontSize:14}}>
             No exercises yet — tap below to add one
           </div>
         )}
-        {workout.entries.map((entry,i)=>(
-          <WECard key={entry._key||i} entry={entry} exercises={exercises} workouts={workouts} onChange={e=>updE(i,e)} onRemove={()=>remE(i)} onMoveUp={()=>moveE(i,-1)} onMoveDown={()=>moveE(i,1)} isFirst={i===0} isLast={i===workout.entries.length-1}/>
+        {(workout?.entries||[]).map((entry,i)=>(
+          <WECard key={entry._key||i} entry={entry} exercises={exercises} workouts={workouts} onChange={e=>updE(i,e)} onRemove={()=>remE(i)} onMoveUp={()=>moveE(i,-1)} onMoveDown={()=>moveE(i,1)} isFirst={i===0} isLast={i===(workout.entries.length-1)}/>
         ))}
-        {/* Add exercise button */}
         <button onClick={()=>setPick(true)} style={{width:"100%",padding:"14px",background:"#0f172a",border:"2px dashed #1e293b",borderRadius:16,cursor:"pointer",color:"#6366f1",fontSize:14,fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
           <Icon name="plus" size={18} color="#6366f1"/> Add Exercise
         </button>
