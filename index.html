@@ -33,7 +33,7 @@ if('serviceWorker' in navigator){
   // Network-first for HTML (so updates load automatically on next open),
   // cache-first for everything else (scripts, CDN assets stay fast offline).
   const sw=`
-const C='fitness-v20';
+const C='fitness-v22';
 self.addEventListener('install',e=>{self.skipWaiting();});
 self.addEventListener('activate',e=>{
   e.waitUntil(
@@ -598,21 +598,52 @@ function MuscleSelector({ primary=[], secondary=[], onChange }) {
 }
 
 // ── Install Banner ────────────────────────────────────────────────────────────
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+const isAndroid = /android/i.test(navigator.userAgent);
+
 function InstallBanner({onDismiss}){
   const [ready,setReady]=useState(!!window._installPrompt);
   const [installing,setInstalling]=useState(false);
   const [manual,setManual]=useState(false);
   useEffect(()=>{window._onIPReady=()=>setReady(true);return()=>{window._onIPReady=null;};},[]);
-  const install=async()=>{
-    if(!window._installPrompt){setManual(true);return;}
-    setInstalling(true);
-    window._installPrompt.prompt();
-    const{outcome}=await window._installPrompt.userChoice;
-    if(outcome==='accepted'){window._installPrompt=null;onDismiss();}
-    setInstalling(false);
-  };
-  if(manual)return(
-    <div style={{margin:"12px 16px 0",background:"#0f172a",border:"1px solid #334155",borderRadius:16,padding:"14px"}}>
+
+  // ── iOS banner ──
+  if(isIOS){
+    return(
+      <div style={{margin:"12px 0 0",background:"linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.1))",border:"1px solid rgba(99,102,241,0.3)",borderRadius:16,padding:"14px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <div style={{width:32,height:32,borderRadius:8,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon name="download" size={16} color="#fff"/></div>
+            <div>
+              <div style={{fontWeight:700,fontSize:14,color:"#f1f5f9"}}>Add to Home Screen</div>
+              <div style={{fontSize:11,color:"#94a3b8"}}>Works offline · No browser bar</div>
+            </div>
+          </div>
+          <button onClick={onDismiss} style={{background:"none",border:"none",cursor:"pointer",color:"#64748b",padding:4}}><Icon name="close" size={16}/></button>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {[
+            {step:"1", text:"Tap the", highlight:"Share button", icon:"⬆️", note:"at the bottom of Safari"},
+            {step:"2", text:"Scroll down and tap", highlight:"Add to Home Screen", icon:"➕"},
+            {step:"3", text:"Tap", highlight:"Add", icon:"✓", note:"in the top right"},
+          ].map(s=>(
+            <div key={s.step} style={{display:"flex",alignItems:"center",gap:10}}>
+              <div style={{width:22,height:22,borderRadius:"50%",background:"rgba(99,102,241,0.3)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                <span style={{fontSize:11,fontWeight:800,color:"#a5b4fc"}}>{s.step}</span>
+              </div>
+              <div style={{fontSize:13,color:"#94a3b8",lineHeight:1.4}}>
+                {s.text} <strong style={{color:"#f1f5f9"}}>{s.icon} {s.highlight}</strong>{s.note&&<span> {s.note}</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Android / manual fallback ──
+  if(manual) return(
+    <div style={{margin:"12px 0 0",background:"#0f172a",border:"1px solid #334155",borderRadius:16,padding:"14px"}}>
       <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
         <span style={{fontWeight:700,fontSize:14,color:"#f1f5f9"}}>Install manually</span>
         <button onClick={onDismiss} style={{background:"none",border:"none",cursor:"pointer",color:"#64748b"}}><Icon name="close" size={16}/></button>
@@ -620,8 +651,9 @@ function InstallBanner({onDismiss}){
       <div style={{fontSize:13,color:"#94a3b8",lineHeight:1.7}}>In Chrome tap <strong style={{color:"#f1f5f9"}}>⋮ menu</strong> → <strong style={{color:"#f1f5f9"}}>"Install app"</strong></div>
     </div>
   );
+
   return(
-    <div style={{margin:"12px 16px 0",background:"linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.1))",border:"1px solid rgba(99,102,241,0.3)",borderRadius:16,padding:"14px"}}>
+    <div style={{margin:"12px 0 0",background:"linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.1))",border:"1px solid rgba(99,102,241,0.3)",borderRadius:16,padding:"14px"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           <div style={{width:32,height:32,borderRadius:8,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon name="download" size={16} color="#fff"/></div>
@@ -632,7 +664,14 @@ function InstallBanner({onDismiss}){
         </div>
         <button onClick={onDismiss} style={{background:"none",border:"none",cursor:"pointer",color:"#64748b"}}><Icon name="close" size={16}/></button>
       </div>
-      <Btn variant="green" onClick={install} style={{width:"100%",justifyContent:"center",padding:"9px",fontSize:13}} disabled={installing}>
+      <Btn variant="green" onClick={async()=>{
+        if(!window._installPrompt){setManual(true);return;}
+        setInstalling(true);
+        window._installPrompt.prompt();
+        const{outcome}=await window._installPrompt.userChoice;
+        if(outcome==="accepted"){window._installPrompt=null;onDismiss();}
+        setInstalling(false);
+      }} style={{width:"100%",justifyContent:"center",padding:"9px",fontSize:13}} disabled={installing}>
         <Icon name="download" size={14}/> {installing?"Installing…":ready?"Install Now":"How to Install"}
       </Btn>
       {!ready&&<div style={{fontSize:11,color:"#64748b",marginTop:8,textAlign:"center"}}>Keep the page open ~30s for the install button to activate</div>}
@@ -1610,149 +1649,6 @@ function Library({exercises,setExercises}){
   );
 }
 
-// ── Fitness Assistant ─────────────────────────────────────────────────────────
-function FitnessAssistant({exercises}){
-  const [open,setOpen]=useState(false);
-  const [query,setQuery]=useState("");
-  const [messages,setMessages]=useState([]); // [{role,content}]
-  const [loading,setLoading]=useState(false);
-  const inputRef=useRef(null);
-  const bottomRef=useRef(null);
-
-  useEffect(()=>{
-    if(open) setTimeout(()=>inputRef.current?.focus(),100);
-  },[open]);
-  useEffect(()=>{
-    bottomRef.current?.scrollIntoView({behavior:"smooth"});
-  },[messages,loading]);
-
-  const exList=exercises.map(e=>`${e.name} (${e.muscles?.join(", ")||""})`).join("; ");
-
-  async function send(){
-    const q=query.trim();
-    if(!q||loading) return;
-    setQuery("");
-    const userMsg={role:"user",content:q};
-    const history=[...messages,userMsg];
-    setMessages(history);
-    setLoading(true);
-    try{
-      const res=await fetch("https://api.anthropic.com/v1/messages",{
-        method:"POST",
-        headers:{"Content-Type":"application/json","anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-        body:JSON.stringify({
-          model:"claude-sonnet-4-20250514",
-          max_tokens:1000,
-          system:`You are a concise, knowledgeable fitness coach inside a workout tracking app. 
-Answer questions about exercise technique, muscle groups, programming, and training advice.
-The user's exercise library includes: ${exList}
-Keep answers short and practical — use bullet points for lists. No markdown headers. Plain text only.`,
-          messages:history.map(m=>({role:m.role,content:m.content}))
-        })
-      });
-      const data=await res.json();
-      const reply=data.content?.find(b=>b.type==="text")?.text||"Sorry, I couldn't get a response.";
-      setMessages([...history,{role:"assistant",content:reply}]);
-    }catch{
-      setMessages([...history,{role:"assistant",content:"Something went wrong. Check your connection and try again."}]);
-    }
-    setLoading(false);
-  }
-
-  const SUGGESTIONS=["Exercises for chest","How to deadlift safely","Best leg day exercises","How to improve grip strength","Exercises for core stability","What muscles do pull-ups work?"];
-
-  return(
-    <>
-      {/* Floating trigger button */}
-      {!open&&(
-        <button onClick={()=>setOpen(true)} style={{position:"absolute",bottom:16,right:16,width:52,height:52,borderRadius:"50%",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 20px rgba(99,102,241,0.5)",zIndex:10}}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
-          </svg>
-        </button>
-      )}
-
-      {/* Chat drawer */}
-      {open&&(
-        <div style={{position:"absolute",inset:0,background:"#0a0f1e",display:"flex",flexDirection:"column",zIndex:20}}>
-          {/* Header */}
-          <div style={{padding:"16px 16px 12px",borderBottom:"1px solid #1e293b",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
-            <div style={{width:34,height:34,borderRadius:10,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
-              </svg>
-            </div>
-            <div style={{flex:1}}>
-              <div style={{fontSize:15,fontWeight:800,color:"#f1f5f9"}}>Fitness Assistant</div>
-              <div style={{fontSize:11,color:"#475569"}}>Ask about exercises, technique & more</div>
-            </div>
-            <button onClick={()=>setOpen(false)} style={{background:"#1e293b",border:"none",borderRadius:8,padding:6,cursor:"pointer",color:"#94a3b8"}}><Icon name="close" size={18}/></button>
-          </div>
-
-          {/* Messages */}
-          <div style={{flex:1,overflowY:"auto",padding:"14px 16px",display:"flex",flexDirection:"column",gap:12}}>
-            {messages.length===0&&(
-              <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                <div style={{fontSize:13,color:"#475569",marginBottom:4}}>Try asking:</div>
-                {SUGGESTIONS.map(s=>(
-                  <button key={s} onClick={()=>{setQuery(s);setTimeout(()=>inputRef.current?.focus(),50);}}
-                    style={{background:"#0f172a",border:"1px solid #1e293b",borderRadius:10,padding:"9px 12px",cursor:"pointer",color:"#94a3b8",fontSize:13,fontFamily:"inherit",textAlign:"left",transition:"border-color 0.15s"}}
-                    onMouseEnter={e=>e.currentTarget.style.borderColor="#6366f1"}
-                    onMouseLeave={e=>e.currentTarget.style.borderColor="#1e293b"}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            )}
-            {messages.map((m,i)=>(
-              <div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start"}}>
-                <div style={{
-                  maxWidth:"85%",padding:"10px 13px",borderRadius:m.role==="user"?"16px 16px 4px 16px":"16px 16px 16px 4px",
-                  background:m.role==="user"?"linear-gradient(135deg,#6366f1,#8b5cf6)":"#0f172a",
-                  border:m.role==="assistant"?"1px solid #1e293b":"none",
-                  fontSize:13,lineHeight:1.6,color:"#f1f5f9",whiteSpace:"pre-wrap"
-                }}>
-                  {m.content}
-                </div>
-              </div>
-            ))}
-            {loading&&(
-              <div style={{display:"flex",justifyContent:"flex-start"}}>
-                <div style={{background:"#0f172a",border:"1px solid #1e293b",borderRadius:"16px 16px 16px 4px",padding:"10px 14px",display:"flex",gap:5,alignItems:"center"}}>
-                  {[0,1,2].map(i=>(
-                    <div key={i} style={{width:6,height:6,borderRadius:"50%",background:"#6366f1",animation:`bounce 1s ease-in-out ${i*0.15}s infinite`}}/>
-                  ))}
-                </div>
-              </div>
-            )}
-            <div ref={bottomRef}/>
-          </div>
-
-          {/* Input */}
-          <div style={{padding:"10px 12px",borderTop:"1px solid #1e293b",display:"flex",gap:8,flexShrink:0,background:"#0a0f1e"}}>
-            <input
-              ref={inputRef}
-              value={query}
-              onChange={e=>setQuery(e.target.value)}
-              onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&send()}
-              placeholder="Ask anything about training…"
-              style={{flex:1,background:"#0f172a",border:"1px solid #334155",borderRadius:12,color:"#f1f5f9",padding:"10px 14px",fontSize:14,outline:"none",fontFamily:"inherit"}}
-            />
-            <button onClick={send} disabled={!query.trim()||loading}
-              style={{width:42,height:42,borderRadius:12,background:query.trim()&&!loading?"linear-gradient(135deg,#6366f1,#8b5cf6)":"#1e293b",border:"none",cursor:query.trim()&&!loading?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"background 0.15s"}}>
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={query.trim()&&!loading?"#fff":"#475569"} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
-      <style>{`@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}`}</style>
-    </>
-  );
-}
-
 // ── Workout Log ───────────────────────────────────────────────────────────────
 function Log({workouts,exercises,templates,onNew,onQuickLog,onView,onNewFromTemplate,onDeleteTemplate,showInstall,onDismissInstall,isOnline}){
   const [section,setSection]=useState("log");
@@ -1897,7 +1793,6 @@ function Log({workouts,exercises,templates,onNew,onQuickLog,onView,onNewFromTemp
         </div>
       )}
       </div>{/* end shared scroll */}
-      {isOnline&&<FitnessAssistant exercises={exercises}/>}
     </div>
   );
 }
@@ -2109,7 +2004,7 @@ function SettingsTab({data, onRestore, isOnline}){
         </div>
 
         <div style={{textAlign:"center",padding:"8px 0 4px"}}>
-          <span style={{fontSize:11,color:"#334155"}}>Fitness Tracker · v20</span>
+          <span style={{fontSize:11,color:"#334155"}}>Fitness Tracker · v22</span>
         </div>
 
       </div>
