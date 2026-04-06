@@ -35,9 +35,22 @@ window._swUpdateReady = false;
 window._swReg = null;
 
 if('serviceWorker' in navigator){
+  const CACHE='fitness-v26';
+  const CDN=[
+    'https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js',
+  ];
   const sw=`
-const C='fitness-v25';
-self.addEventListener('install',e=>{self.skipWaiting();});
+const C='${CACHE}';
+const CDN=${JSON.stringify(CDN)};
+self.addEventListener('install',e=>{
+  self.skipWaiting();
+  // Pre-cache CDN scripts so the app works fully offline
+  e.waitUntil(
+    caches.open(C).then(cache=>cache.addAll(CDN).catch(()=>{}))
+  );
+});
 self.addEventListener('activate',e=>{
   e.waitUntil(
     caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==C).map(k=>caches.delete(k))))
@@ -46,24 +59,25 @@ self.addEventListener('activate',e=>{
 });
 self.addEventListener('fetch',e=>{
   const url=new URL(e.request.url);
-  const isHTML=e.request.mode==='navigate'||url.pathname.endsWith('.html')||url.pathname==='/';
-  if(isHTML){
+  const isNav=e.request.mode==='navigate';
+  if(isNav){
+    // Network-first for navigation: get fresh HTML, cache it, fall back to cache offline
     e.respondWith(
       fetch(e.request).then(res=>{
         const c=res.clone();
         caches.open(C).then(ca=>ca.put(e.request,c));
         return res;
-      }).catch(()=>caches.match(e.request))
+      }).catch(()=>caches.match(e.request).then(r=>r||caches.match('/')))
     );
   } else {
+    // Cache-first for everything else (scripts, CDN assets)
     e.respondWith(
       caches.match(e.request).then(cached=>{
-        const fetched=fetch(e.request).then(res=>{
-          const c=res.clone();
-          caches.open(C).then(ca=>ca.put(e.request,c));
+        if(cached) return cached;
+        return fetch(e.request).then(res=>{
+          if(res.ok){const c=res.clone();caches.open(C).then(ca=>ca.put(e.request,c));}
           return res;
         }).catch(()=>cached);
-        return cached||fetched;
       })
     );
   }
@@ -72,33 +86,21 @@ self.addEventListener('message',e=>{
   if(e.data&&e.data.type==='SKIP_WAITING') self.skipWaiting();
 });`;
 
-  navigator.serviceWorker.register(
-    URL.createObjectURL(new Blob([sw],{type:'application/javascript'}))
-  ).then(reg=>{
-    window._swReg = reg;
-
-    // Detect a waiting SW (update already downloaded)
-    if(reg.waiting) {
-      window._swUpdateReady = true;
-      window.dispatchEvent(new Event('swupdateready'));
-    }
-
+  const blob=new Blob([sw],{type:'application/javascript'});
+  const swUrl=URL.createObjectURL(blob);
+  navigator.serviceWorker.register(swUrl,{scope:'./'}).then(reg=>{
+    window._swReg=reg;
+    if(reg.waiting){window._swUpdateReady=true;window.dispatchEvent(new Event('swupdateready'));}
     reg.addEventListener('updatefound',()=>{
-      const newWorker = reg.installing;
-      newWorker.addEventListener('statechange',()=>{
-        if(newWorker.state==='installed' && navigator.serviceWorker.controller){
-          window._swUpdateReady = true;
-          window.dispatchEvent(new Event('swupdateready'));
+      const nw=reg.installing;
+      nw.addEventListener('statechange',()=>{
+        if(nw.state==='installed'&&navigator.serviceWorker.controller){
+          window._swUpdateReady=true;window.dispatchEvent(new Event('swupdateready'));
         }
       });
     });
-
-    // When SW takes over, reload (only fires after we explicitly call skipWaiting)
-    navigator.serviceWorker.addEventListener('controllerchange',()=>{
-      window.location.reload();
-    });
-
-    setInterval(()=>reg.update(), 60*60*1000);
+    navigator.serviceWorker.addEventListener('controllerchange',()=>window.location.reload());
+    setInterval(()=>reg.update(),60*60*1000);
   }).catch(()=>{});
 }
 
@@ -518,7 +520,7 @@ function useKeyboardHeight(){
 // Steps: console.cloud.google.com → New project → APIs & Services → Credentials
 // → Create OAuth Client ID → Web application → add your GitHub Pages URL to
 // "Authorised JavaScript origins" e.g. https://yourusername.github.io
-const GOOGLE_CLIENT_ID = "684797576180-01p3f5r8g4fc5g7cif553qjeav04dtbh.apps.googleusercontent.com";
+const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID_HERE";
 const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 const DRIVE_FILE_NAME = "fitness-tracker-backup.json";
 
@@ -1247,9 +1249,18 @@ function Editor({workout,exercises,workouts,onSave,onCancel,preferredUnit}){
   const cats=[...new Set(allMuscles.map(m=>getCategoryForMuscle(m)))];
   const ok=w.name.trim()&&w.entries.length>0;
   const{ref:editorScrollRef,hidden:editorHeaderHidden}=useScrollHide();
+  const editorHeaderRef=useRef(null);
+  const[editorHeaderH,setEditorHeaderH]=useState(0);
+  useEffect(()=>{
+    const el=editorHeaderRef.current; if(!el) return;
+    const ro=new ResizeObserver(()=>setEditorHeaderH(el.offsetHeight||0));
+    ro.observe(el);
+    setEditorHeaderH(el.offsetHeight||0);
+    return()=>ro.disconnect();
+  },[]);
   return(
-    <div style={{display:"flex",flexDirection:"column",height:"100%",background:"#0a0f1e"}}>
-      <div style={{transform:editorHeaderHidden?"translateY(-100%)":"translateY(0)",transition:"transform 0.25s ease",willChange:"transform",background:"#0a0f1e",zIndex:2,flexShrink:0}}>
+    <div style={{display:"flex",flexDirection:"column",height:"100%",background:"#0a0f1e",position:"relative"}}>
+      <div ref={editorHeaderRef} style={{position:"absolute",top:0,left:0,right:0,zIndex:2,transform:editorHeaderHidden?"translateY(-100%)":"translateY(0)",transition:"transform 0.25s ease",willChange:"transform",background:"#0a0f1e"}}>
         <div style={{padding:"16px",borderBottom:"1px solid #1e293b",display:"flex",alignItems:"center",gap:10}}>
           <button onClick={onCancel} style={{background:"none",border:"none",cursor:"pointer",color:"#94a3b8",padding:4}}><Icon name="back" size={22}/></button>
           <span style={{fontWeight:800,fontSize:18,color:"#f1f5f9",flex:1}}>{workout?"Edit Workout":"New Workout"}</span>
@@ -1257,7 +1268,7 @@ function Editor({workout,exercises,workouts,onSave,onCancel,preferredUnit}){
           <Btn variant={ok?"primary":"secondary"} onClick={()=>ok&&onSave(w)} style={{opacity:ok?1:0.4,padding:"8px 16px",fontSize:13}}><Icon name="check" size={15}/> Save</Btn>
         </div>
       </div>
-      <div ref={editorScrollRef} style={{overflowY:"auto",flex:1,padding:"16px 16px 100px",display:"flex",flexDirection:"column",gap:14}}>
+      <div ref={editorScrollRef} style={{overflowY:"auto",flex:1,paddingTop:editorHeaderHidden?0:editorHeaderH,transition:"padding-top 0.25s ease",paddingLeft:16,paddingRight:16,paddingBottom:100,display:"flex",flexDirection:"column",gap:14}}>
         <Inp label="Workout Name" placeholder="e.g. Push Day, Leg Day..." value={w.name} onChange={e=>setW(p=>({...p,name:e.target.value}))}/>
         <DateInput value={w.date} onChange={d=>setW(p=>({...p,date:d}))} style={{background:"#1e293b",border:"1px solid #334155",borderRadius:10,color:"#f1f5f9",padding:"10px 12px",fontSize:14,outline:"none",width:"100%",fontFamily:"inherit"}}/>
         {cats.length>0&&<div><div style={{fontSize:11,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:"#94a3b8",marginBottom:6}}>Muscles Trained</div><MusclePills muscles={allMuscles}/></div>}
@@ -1526,9 +1537,18 @@ function Log({workouts,exercises,templates,onNew,onQuickLog,onView,onNewFromTemp
   const sorted=[...workouts].sort((a,b)=>b.date.localeCompare(a.date));
   const ts=countSetsWorkouts(workouts,exercises);
   const{ref:scrollRef,hidden:headerHidden}=useScrollHide();
+  const logHeaderRef=useRef(null);
+  const[logHeaderH,setLogHeaderH]=useState(0);
+  useEffect(()=>{
+    const el=logHeaderRef.current; if(!el) return;
+    const ro=new ResizeObserver(()=>setLogHeaderH(el.offsetHeight||0));
+    ro.observe(el);
+    setLogHeaderH(el.offsetHeight||0);
+    return()=>ro.disconnect();
+  },[]);
   return(
     <div style={{display:"flex",flexDirection:"column",height:"100%",background:"#0a0f1e",position:"relative"}}>
-      <div style={{transform:headerHidden?"translateY(-100%)":"translateY(0)",transition:"transform 0.25s ease",willChange:"transform",background:"#0a0f1e",zIndex:2,flexShrink:0}}>
+      <div ref={logHeaderRef} style={{position:"absolute",top:0,left:0,right:0,zIndex:2,transform:headerHidden?"translateY(-100%)":"translateY(0)",transition:"transform 0.25s ease",willChange:"transform",background:"#0a0f1e"}}>
         <div style={{padding:"24px 16px 0"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
             <div>
@@ -1558,7 +1578,7 @@ function Log({workouts,exercises,templates,onNew,onQuickLog,onView,onNewFromTemp
           </div>
         </div>
       </div>
-      <div ref={scrollRef} style={{flex:1,overflowY:"auto"}}>
+      <div ref={scrollRef} style={{flex:1,overflowY:"auto",paddingTop:headerHidden?0:logHeaderH,transition:"padding-top 0.25s ease"}}>
         {section==="log"&&(<>
           <div style={{padding:"14px 16px 0"}}>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
@@ -1739,6 +1759,23 @@ function SettingsTab({data,onRestore,isOnline,preferredUnit,onSetPreferredUnit})
     } catch { alert("Snapshot data is corrupted"); }
   }
 
+  // Track which sections are collapsed (all open by default)
+  const[collapsed,setCollapsed]=useState({});
+  const toggleSection=id=>setCollapsed(p=>({...p,[id]:!p[id]}));
+
+  const CollapsibleCard=({id,label,children})=>{
+    const isCollapsed=!!collapsed[id];
+    return(
+      <div style={{background:"#0f172a",borderRadius:16,border:"1px solid #1e293b"}}>
+        <button onClick={()=>toggleSection(id)} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 16px 10px",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",borderBottom:isCollapsed?"none":"1px solid #1e293b"}}>
+          <span style={{fontSize:11,fontWeight:700,color:"#475569",textTransform:"uppercase",letterSpacing:"0.08em"}}>{label}</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{transform:isCollapsed?"rotate(-90deg)":"rotate(0deg)",transition:"transform 0.2s",flexShrink:0}}><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        {!isCollapsed&&children}
+      </div>
+    );
+  };
+
   const Row=({icon,title,subtitle,right,onClick,danger,iconBg})=>(
     <button onClick={onClick} disabled={!onClick} style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"14px 16px",background:"none",border:"none",cursor:onClick?"pointer":"default",fontFamily:"inherit",textAlign:"left",borderBottom:"1px solid #1e293b"}}>
       <div style={{width:36,height:36,borderRadius:10,flexShrink:0,background:iconBg||(danger?"rgba(239,68,68,0.12)":"#1e293b"),display:"flex",alignItems:"center",justifyContent:"center"}}><Icon name={icon} size={18} color={danger?"#ef4444":"#94a3b8"}/></div>
@@ -1756,8 +1793,7 @@ function SettingsTab({data,onRestore,isOnline,preferredUnit,onSetPreferredUnit})
       <div style={{overflowY:"auto",flex:1,padding:"16px",display:"flex",flexDirection:"column",gap:14}}>
 
         {/* ── Google Drive Backup ── */}
-        <div style={{background:"#0f172a",borderRadius:16,border:"1px solid #1e293b"}}>
-          <SectionHeader label="Google Drive Backup"/>
+        <CollapsibleCard id="drive" label="Google Drive Backup">
 
           {!clientIdSet&&(
             <div style={{margin:"12px 16px",background:"rgba(234,179,8,0.08)",border:"1px solid rgba(234,179,8,0.25)",borderRadius:12,padding:"12px 14px"}}>
@@ -1820,18 +1856,18 @@ function SettingsTab({data,onRestore,isOnline,preferredUnit,onSetPreferredUnit})
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{marginTop:1,flexShrink:0}}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             <span style={{fontSize:12,color:"#475569",lineHeight:1.5}}>Drive backups are stored in your own Google Drive under the filename <strong style={{color:"#64748b"}}>fitness-tracker-backup.json</strong>. Only you can access them.</span>
           </div>
-        </div>
+        </CollapsibleCard>
 
         {/* ── Local Snapshots ── */}
-        <div style={{background:"#0f172a",borderRadius:16,border:"1px solid #1e293b"}}>
-          <button onClick={()=>setShowSnapshots(v=>!v)} style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"14px 16px",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",textAlign:"left",borderBottom:showSnapshots?"1px solid #1e293b":"none"}}>
+        <CollapsibleCard id="snapshots" label="Local Snapshots">
+          <div style={{borderBottom:"1px solid #1e293b",padding:"12px 16px",display:"flex",alignItems:"center",gap:10}}>
             <div style={{width:36,height:36,borderRadius:10,background:"rgba(99,102,241,0.12)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Icon name="history" size={18} color="#818cf8"/></div>
             <div style={{flex:1}}>
               <div style={{fontSize:14,fontWeight:600,color:"#f1f5f9"}}>Local Snapshots</div>
               <div style={{fontSize:12,color:"#475569",marginTop:1}}>Auto-saved after every change · last {Math.min(snapshots.length,MAX_SNAPSHOTS)} kept</div>
             </div>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{transform:showSnapshots?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s",flexShrink:0}}><polyline points="6 9 12 15 18 9"/></svg>
-          </button>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{transform:showSnapshots?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s",cursor:"pointer",flexShrink:0}} onClick={()=>setShowSnapshots(v=>!v)}><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
           {showSnapshots&&(
             <div>
               {snapshots.length===0&&<div style={{padding:"16px",fontSize:13,color:"#475569",textAlign:"center"}}>No snapshots yet — make any change to create one.</div>}
@@ -1864,11 +1900,10 @@ function SettingsTab({data,onRestore,isOnline,preferredUnit,onSetPreferredUnit})
               })}
             </div>
           )}
-        </div>
+        </CollapsibleCard>
 
         {/* ── Local export / import ── */}
-        <div style={{background:"#0f172a",borderRadius:16,border:"1px solid #1e293b"}}>
-          <SectionHeader label="Local backup"/>
+        <CollapsibleCard id="localbackup" label="Local Backup">
           <Row icon="download" title="Export backup" subtitle={`Downloads a .json file — ${data?.workouts?.length||0} workouts, ${data?.exercises?.length||0} exercises`} onClick={handleExport}
             right={<div style={{background:"linear-gradient(135deg,#6366f1,#8b5cf6)",borderRadius:8,padding:"6px 12px"}}><span style={{fontSize:12,fontWeight:700,color:"#fff"}}>Export</span></div>}/>
           <div style={{borderBottom:"1px solid #1e293b"}}>
@@ -1893,13 +1928,11 @@ function SettingsTab({data,onRestore,isOnline,preferredUnit,onSetPreferredUnit})
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             <span style={{fontSize:12,color:"#475569",lineHeight:1.5}}>Export regularly as an extra safety net alongside Drive backup.</span>
           </div>
-        </div>
+        </CollapsibleCard>
 
         {/* ── App / Updates ── */}
-        <div style={{background:"#0f172a",borderRadius:16,border:"1px solid #1e293b"}}>
-          <SectionHeader label="App"/>
-          {/* Default unit */}
-          <div style={{padding:"14px 16px",borderBottom:"1px solid #1e293b",display:"flex",alignItems:"center",gap:12}}>
+        <CollapsibleCard id="app" label="App">
+          <div style={{borderBottom:"1px solid #1e293b",padding:"14px 16px",display:"flex",alignItems:"center",gap:12}}>
             <div style={{width:36,height:36,borderRadius:10,background:"rgba(99,102,241,0.12)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"/><line x1="4" y1="21" x2="20" y2="21"/></svg>
             </div>
@@ -1924,11 +1957,10 @@ function SettingsTab({data,onRestore,isOnline,preferredUnit,onSetPreferredUnit})
             </div>
             <div style={{fontSize:10,fontWeight:700,color:"#22c55e",background:"rgba(34,197,94,0.12)",padding:"3px 8px",borderRadius:6}}>ON</div>
           </div>
-        </div>
+        </CollapsibleCard>
 
         {/* ── Coming soon ── */}
-        <div style={{background:"#0f172a",borderRadius:16,border:"1px solid #1e293b"}}>
-          <SectionHeader label="Coming soon"/>
+        <CollapsibleCard id="comingsoon" label="Coming Soon">
           {[{icon:"user",title:"Profile & Goals",subtitle:"Set weekly targets and personal goals"},{icon:"fire",title:"Streaks & Badges",subtitle:"Track consistency and milestones"},{icon:"tag",title:"Custom Tags",subtitle:"Tag workouts by programme or focus"}].map((item,i,arr)=>(
             <div key={item.title} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",borderBottom:i<arr.length-1?"1px solid #1e293b":"none",opacity:0.45}}>
               <div style={{width:36,height:36,borderRadius:10,background:"#1e293b",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Icon name={item.icon} size={18} color="#64748b"/></div>
@@ -1936,9 +1968,9 @@ function SettingsTab({data,onRestore,isOnline,preferredUnit,onSetPreferredUnit})
               <div style={{fontSize:10,fontWeight:700,color:"#475569",background:"#1e293b",padding:"3px 8px",borderRadius:6,flexShrink:0}}>SOON</div>
             </div>
           ))}
-        </div>
+        </CollapsibleCard>
 
-        <div style={{textAlign:"center",padding:"8px 0 4px"}}><span style={{fontSize:11,color:"#334155"}}>Fitness Tracker · v25</span></div>
+        <div style={{textAlign:"center",padding:"8px 0 4px"}}><span style={{fontSize:11,color:"#334155"}}>Fitness Tracker · v26</span></div>
       </div>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
@@ -2006,9 +2038,18 @@ function QuickLog({exercises,templates,workouts,onSave,onCancel,onCreateExercise
   );
 
   const totalSets=workout?countSets(workout.entries.map(e=>({...e,sets:e.sets.filter(s=>s.weight||s.reps)})),exercises):0;
+  const qlHeaderRef=useRef(null);
+  const[qlHeaderH,setQlHeaderH]=useState(0);
+  useEffect(()=>{
+    const el=qlHeaderRef.current; if(!el) return;
+    const ro=new ResizeObserver(()=>setQlHeaderH(el.offsetHeight||0));
+    ro.observe(el);
+    setQlHeaderH(el.offsetHeight||0);
+    return()=>ro.disconnect();
+  },[]);
   return(
-    <div style={{display:"flex",flexDirection:"column",height:"100%",background:"#0a0f1e"}}>
-      <div style={{transform:sessionHeaderHidden?"translateY(-100%)":"translateY(0)",transition:"transform 0.25s ease",willChange:"transform",background:"#0a0f1e",zIndex:2,flexShrink:0}}>
+    <div style={{display:"flex",flexDirection:"column",height:"100%",background:"#0a0f1e",position:"relative"}}>
+      <div ref={qlHeaderRef} style={{position:"absolute",top:0,left:0,right:0,zIndex:2,transform:sessionHeaderHidden?"translateY(-100%)":"translateY(0)",transition:"transform 0.25s ease",willChange:"transform",background:"#0a0f1e"}}>
         <div style={{padding:"14px 16px",borderBottom:"1px solid #1e293b"}}>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
             <button onClick={()=>setConfirmDiscard(true)} style={{background:"none",border:"none",cursor:"pointer",color:"#64748b",padding:4}}><Icon name="close" size={20}/></button>
@@ -2022,7 +2063,7 @@ function QuickLog({exercises,templates,workouts,onSave,onCancel,onCreateExercise
           </div>
         </div>
       </div>
-      <div ref={sessionScrollRef} style={{flex:1,overflowY:"auto",padding:"14px 16px 120px",display:"flex",flexDirection:"column",gap:12}}>
+      <div ref={sessionScrollRef} style={{flex:1,overflowY:"auto",paddingTop:sessionHeaderHidden?0:qlHeaderH,transition:"padding-top 0.25s ease",paddingLeft:14,paddingRight:16,paddingBottom:120,display:"flex",flexDirection:"column",gap:12}}>
         {(!workout?.entries.length)&&<div style={{textAlign:"center",padding:"50px 20px",color:"#334155",fontSize:14}}>No exercises yet — tap below to add one</div>}
         {(workout?.entries||[]).map((entry,i)=>(
           <WECard key={entry._key||i} entry={entry} exercises={exercises} workouts={workouts} onChange={e=>updE(i,e)} onRemove={()=>remE(i)} onMoveUp={()=>moveE(i,-1)} onMoveDown={()=>moveE(i,1)} isFirst={i===0} isLast={i===(workout.entries.length-1)}/>
