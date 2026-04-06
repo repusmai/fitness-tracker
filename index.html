@@ -531,7 +531,7 @@ function useKeyboardHeight(){
 // Steps: console.cloud.google.com → New project → APIs & Services → Credentials
 // → Create OAuth Client ID → Web application → add your GitHub Pages URL to
 // "Authorised JavaScript origins" e.g. https://yourusername.github.io
-const GOOGLE_CLIENT_ID = "684797576180-01p3f5r8g4fc5g7cif553qjeav04dtbh.apps.googleusercontent.com";
+const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID_HERE";
 const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 const DRIVE_FILE_NAME = "fitness-tracker-backup.json";
 
@@ -2115,11 +2115,17 @@ function App(){
 
   // Detect installed PWA — must run after mount, matchMedia can be wrong synchronously
   useEffect(()=>{
-    const check=()=>setIsInstalled(
-      window.matchMedia('(display-mode: standalone)').matches||
-      window.navigator.standalone===true||
-      document.referrer.includes('android-app://')
-    );
+    const check=()=>{
+      const installed=
+        window.matchMedia('(display-mode: standalone)').matches||
+        window.navigator.standalone===true||
+        document.referrer.includes('android-app://');
+      setIsInstalled(installed);
+      // Persist so cold offline launches remember the installed state
+      if(installed) try{localStorage.setItem('_pwaInstalled','1');}catch{}
+    };
+    // Also check persisted value immediately for offline cold starts
+    if(localStorage.getItem('_pwaInstalled')==='1') setIsInstalled(true);
     check();
     const mq=window.matchMedia('(display-mode: standalone)');
     mq.addEventListener('change',check);
@@ -2202,7 +2208,7 @@ function App(){
 
   const main=scr||(
     tab==="log"
-      ?<Log workouts={workouts} exercises={exercises} templates={templates||[]} onNew={()=>setScreen("new")} onQuickLog={()=>setScreen("quicklog")} onView={w=>{setActive(w);setScreen("detail");}} onNewFromTemplate={startFromTemplate} onDeleteTemplate={deleteTemplate} showInstall={showInstall&&!isInstalled} onDismissInstall={()=>setShowInstall(false)} isOnline={isOnline} updateReady={updateReady} onApplyUpdate={applyUpdate}/>
+      ?<Log workouts={workouts} exercises={exercises} templates={templates||[]} onNew={()=>setScreen("new")} onQuickLog={()=>setScreen("quicklog")} onView={w=>{setActive(w);setScreen("detail");}} onNewFromTemplate={startFromTemplate} onDeleteTemplate={deleteTemplate} showInstall={showInstall&&!isInstalled&&isOnline} onDismissInstall={()=>setShowInstall(false)} isOnline={isOnline} updateReady={updateReady} onApplyUpdate={applyUpdate}/>
     :tab==="stats"
       ?<StatsTab workouts={workouts} exercises={exercises} bodyweight={bodyweight||80} onSetBW={setBW} preferredUnit={data.preferredUnit||"kg"} onSetPreferredUnit={setPU}/>
     :tab==="library"
