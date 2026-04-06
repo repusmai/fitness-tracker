@@ -41,15 +41,22 @@ if('serviceWorker' in navigator){
     'https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js',
   ];
+  // Cache the page URL itself (handles both root and /repo-name/ deploys)
+  const PAGE_URL=location.href.split('?')[0];
+
   const sw=`
 const C='${CACHE}';
 const CDN=${JSON.stringify(CDN)};
+const PAGE='${PAGE_URL}';
 self.addEventListener('install',e=>{
   self.skipWaiting();
-  // Pre-cache CDN scripts so the app works fully offline
-  e.waitUntil(
-    caches.open(C).then(cache=>cache.addAll(CDN).catch(()=>{}))
-  );
+  e.waitUntil((async()=>{
+    const cache=await caches.open(C);
+    // Cache page itself first
+    try{await cache.add(PAGE);}catch(_){}
+    // Cache each CDN script independently so one failure doesn't block others
+    await Promise.all(CDN.map(url=>cache.add(url).catch(()=>{})));
+  })());
 });
 self.addEventListener('activate',e=>{
   e.waitUntil(
@@ -58,26 +65,28 @@ self.addEventListener('activate',e=>{
   );
 });
 self.addEventListener('fetch',e=>{
-  const url=new URL(e.request.url);
   const isNav=e.request.mode==='navigate';
   if(isNav){
-    // Network-first for navigation: get fresh HTML, cache it, fall back to cache offline
+    // Network-first for navigation; serve cached page when offline
     e.respondWith(
       fetch(e.request).then(res=>{
         const c=res.clone();
         caches.open(C).then(ca=>ca.put(e.request,c));
         return res;
-      }).catch(()=>caches.match(e.request).then(r=>r||caches.match('/')))
+      }).catch(async()=>{
+        const r=await caches.match(e.request);
+        return r||await caches.match(PAGE)||new Response('Offline',{status:503});
+      })
     );
   } else {
-    // Cache-first for everything else (scripts, CDN assets)
+    // Cache-first for scripts/assets
     e.respondWith(
       caches.match(e.request).then(cached=>{
         if(cached) return cached;
         return fetch(e.request).then(res=>{
           if(res.ok){const c=res.clone();caches.open(C).then(ca=>ca.put(e.request,c));}
           return res;
-        }).catch(()=>cached);
+        });
       })
     );
   }
@@ -86,22 +95,24 @@ self.addEventListener('message',e=>{
   if(e.data&&e.data.type==='SKIP_WAITING') self.skipWaiting();
 });`;
 
-  const blob=new Blob([sw],{type:'application/javascript'});
-  const swUrl=URL.createObjectURL(blob);
-  navigator.serviceWorker.register(swUrl,{scope:'./'}).then(reg=>{
-    window._swReg=reg;
-    if(reg.waiting){window._swUpdateReady=true;window.dispatchEvent(new Event('swupdateready'));}
-    reg.addEventListener('updatefound',()=>{
-      const nw=reg.installing;
-      nw.addEventListener('statechange',()=>{
-        if(nw.state==='installed'&&navigator.serviceWorker.controller){
-          window._swUpdateReady=true;window.dispatchEvent(new Event('swupdateready'));
-        }
+  try {
+    const blob=new Blob([sw],{type:'application/javascript'});
+    const swUrl=URL.createObjectURL(blob);
+    navigator.serviceWorker.register(swUrl).then(reg=>{
+      window._swReg=reg;
+      if(reg.waiting){window._swUpdateReady=true;window.dispatchEvent(new Event('swupdateready'));}
+      reg.addEventListener('updatefound',()=>{
+        const nw=reg.installing;
+        nw.addEventListener('statechange',()=>{
+          if(nw.state==='installed'&&navigator.serviceWorker.controller){
+            window._swUpdateReady=true;window.dispatchEvent(new Event('swupdateready'));
+          }
+        });
       });
-    });
-    navigator.serviceWorker.addEventListener('controllerchange',()=>window.location.reload());
-    setInterval(()=>reg.update(),60*60*1000);
-  }).catch(()=>{});
+      navigator.serviceWorker.addEventListener('controllerchange',()=>window.location.reload());
+      setInterval(()=>reg.update(),60*60*1000);
+    }).catch(()=>{});
+  } catch(_) {}
 }
 
 window._installPrompt=null;
@@ -520,7 +531,7 @@ function useKeyboardHeight(){
 // Steps: console.cloud.google.com → New project → APIs & Services → Credentials
 // → Create OAuth Client ID → Web application → add your GitHub Pages URL to
 // "Authorised JavaScript origins" e.g. https://yourusername.github.io
-const GOOGLE_CLIENT_ID = "684797576180-01p3f5r8g4fc5g7cif553qjeav04dtbh.apps.googleusercontent.com";
+const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID_HERE";
 const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 const DRIVE_FILE_NAME = "fitness-tracker-backup.json";
 
@@ -2096,11 +2107,24 @@ function App(){
   const[screen,setScreen]=useState(null);
   const[active,setActive]=useState(null);
   const[showInstall,setShowInstall]=useState(true);
+  const[isInstalled,setIsInstalled]=useState(false);
   const[isOnline,setIsOnline]=useState(()=>navigator.onLine);
   const[updateReady,setUpdateReady]=useState(()=>window._swUpdateReady||false);
   const[dataRestored,setDataRestored]=useState(false);
-  const isInstalled=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
   const{workouts,exercises,bodyweight,templates}=data;
+
+  // Detect installed PWA — must run after mount, matchMedia can be wrong synchronously
+  useEffect(()=>{
+    const check=()=>setIsInstalled(
+      window.matchMedia('(display-mode: standalone)').matches||
+      window.navigator.standalone===true||
+      document.referrer.includes('android-app://')
+    );
+    check();
+    const mq=window.matchMedia('(display-mode: standalone)');
+    mq.addEventListener('change',check);
+    return()=>mq.removeEventListener('change',check);
+  },[]);
 
   // Listen for SW update ready signal
   useEffect(()=>{
