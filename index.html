@@ -1882,7 +1882,7 @@ function SettingsTab({data,onRestore,isOnline,preferredUnit,onSetPreferredUnit})
   const[driveRestore,setDriveRestore]=useState(null); // {data, modifiedTime}
   const[autoBackup,setAutoBackup]=useState(()=>getDrivePrefs().autoBackup||false);
   const[lastBackup,setLastBackup]=useState(()=>{const t=getDrivePrefs().lastBackup;return t?new Date(t):null;});
-  const clientIdSet = GOOGLE_CLIENT_ID !== "YOUR_GOOGLE_CLIENT_ID_HERE";
+  const clientIdSet = GOOGLE_CLIENT_ID !== "684797576180-01p3f5r8g4fc5g7cif553qjeav04dtbh.apps.googleusercontent.com";
 
   const fileRef=useRef(null);
 
