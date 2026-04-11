@@ -702,7 +702,16 @@ function useKeyboardHeight(){
 // Steps: console.cloud.google.com → New project → APIs & Services → Credentials
 // → Create OAuth Client ID → Web application → add your GitHub Pages URL to
 // "Authorised JavaScript origins" e.g. https://yourusername.github.io
-const GOOGLE_CLIENT_ID = "684797576180-01p3f5r8g4fc5g7cif553qjeav04dtbh.apps.googleusercontent.com";
+// Google Client ID is stored in localStorage so users can set it in the app
+function getGoogleClientId(){
+  return localStorage.getItem('fitnessTracker_googleClientId')||'';
+}
+function setGoogleClientId(id){
+  if(id) localStorage.setItem('fitnessTracker_googleClientId',id.trim());
+  else localStorage.removeItem('fitnessTracker_googleClientId');
+  // Reset token client so it picks up the new ID
+  _tokenClient=null; _accessToken=null;
+}
 const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 const DRIVE_FILE_NAME = "fitness-tracker-backup.json";
 
@@ -728,7 +737,7 @@ async function getAccessToken(){
   if(!_optionalChain([window, 'access', _33 => _33.google, 'optionalAccess', _34 => _34.accounts, 'optionalAccess', _35 => _35.oauth2])) throw new Error("Google Identity Services failed to load");
   return new Promise((resolve, reject)=>{
     _tokenClient = window.google.accounts.oauth2.initTokenClient({
-      client_id: GOOGLE_CLIENT_ID,
+      client_id: getGoogleClientId(),
       scope: DRIVE_SCOPE,
       callback: (resp)=>{
         if(resp.error){ reject(new Error(resp.error)); return; }
@@ -994,6 +1003,28 @@ function InstallBanner({onDismiss}){
   );
 }
 
+function resolveCSSColor(cssVar,fallback){
+  // Canvas cannot use CSS variables - resolve them to actual colors
+  if(!cssVar||!cssVar.startsWith('var(--')) return cssVar||fallback;
+  try{
+    const el=document.documentElement;
+    const val=getComputedStyle(el).getPropertyValue(cssVar.slice(4,-1)).trim();
+    return val||fallback;
+  }catch(e){return fallback;}
+}
+function hexAlpha(color,alpha){
+  // Add alpha to a hex color for canvas gradients. Returns rgba if needed.
+  if(!color) return 'rgba(99,102,241,'+alpha+')';
+  if(color.startsWith('#')&&color.length===7){
+    const r=parseInt(color.slice(1,3),16);
+    const g=parseInt(color.slice(3,5),16);
+    const b=parseInt(color.slice(5,7),16);
+    return 'rgba('+r+','+g+','+b+','+alpha+')';
+  }
+  if(color.startsWith('rgba')) return color.replace(/,[^,]+\)$/,','+alpha+')');
+  if(color.startsWith('rgb')) return color.replace('rgb(','rgba(').replace(')',','+alpha+')');
+  return color; // fallback
+}
 function LineChart({points,color="var(--accent)",height=120,showDots=true,yLabel="kg"}){
   const ref=useRef(null);
   const wrapRef=useRef(null);
@@ -1006,6 +1037,12 @@ function LineChart({points,color="var(--accent)",height=120,showDots=true,yLabel
     canvas.width=W*dpr; canvas.height=H*dpr;
     canvas.style.width=W+"px"; canvas.style.height=H+"px";
     const ctx=canvas.getContext("2d");
+    if(!ctx) return;
+    // Resolve CSS variables to actual colors (canvas cannot use CSS vars on Android)
+    const resolvedColor=resolveCSSColor(color,'#6366f1');
+    const gridColor=resolveCSSColor('var(--surface2)','#1e293b');
+    const labelColor=resolveCSSColor('var(--muted)','#475569');
+    const bgColor=resolveCSSColor('var(--bg)','#0a0f1e');
     ctx.scale(dpr,dpr); ctx.clearRect(0,0,W,H);
     const vals=points.map(p=>p.value);
     const mn=Math.min(...vals),mx=Math.max(...vals);
@@ -1017,29 +1054,29 @@ function LineChart({points,color="var(--accent)",height=120,showDots=true,yLabel
     for(let t=0;t<=yTicks;t++){
       const v=mn+(mx-mn)*t/yTicks; const y=sy(v);
       ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y);
-      ctx.strokeStyle="var(--surface2)"; ctx.lineWidth=1; ctx.stroke();
-      ctx.fillStyle="var(--muted)"; ctx.font="bold 9px sans-serif"; ctx.textAlign="right"; ctx.textBaseline="middle";
+      ctx.strokeStyle=gridColor; ctx.lineWidth=1; ctx.stroke();
+      ctx.fillStyle=labelColor; ctx.font="bold 9px sans-serif"; ctx.textAlign="right"; ctx.textBaseline="middle";
       ctx.fillText(Math.round(v)+yLabel,pad.l-4,y);
     }
     const fmtShort=iso=>{const d=new Date(iso);return d.toLocaleDateString("en-GB",{day:"2-digit",month:"short"});};
-    ctx.fillStyle="var(--muted)"; ctx.font="9px sans-serif"; ctx.textBaseline="top";
+    ctx.fillStyle=labelColor; ctx.font="9px sans-serif"; ctx.textBaseline="top";
     if(points.length>1){
       ctx.textAlign="left"; ctx.fillText(fmtShort(points[0].date),pad.l,H-pad.b+4);
       ctx.textAlign="right"; ctx.fillText(fmtShort(points[points.length-1].date),W-pad.r,H-pad.b+4);
       if(points.length>3){const mi=Math.floor(points.length/2);ctx.textAlign="center";ctx.fillText(fmtShort(points[mi].date),sx(mi),H-pad.b+4);}
     }
     const grad=ctx.createLinearGradient(0,pad.t,0,H-pad.b);
-    grad.addColorStop(0,color+"44"); grad.addColorStop(1,color+"00");
+    grad.addColorStop(0,hexAlpha(resolvedColor,0.27)); grad.addColorStop(1,hexAlpha(resolvedColor,0));
     ctx.beginPath(); ctx.moveTo(sx(0),sy(points[0].value));
     for(let i=1;i<points.length;i++) ctx.lineTo(sx(i),sy(points[i].value));
     ctx.lineTo(sx(points.length-1),H-pad.b); ctx.lineTo(sx(0),H-pad.b);
     ctx.closePath(); ctx.fillStyle=grad; ctx.fill();
     ctx.beginPath(); ctx.moveTo(sx(0),sy(points[0].value));
     for(let i=1;i<points.length;i++) ctx.lineTo(sx(i),sy(points[i].value));
-    ctx.strokeStyle=color; ctx.lineWidth=2; ctx.lineJoin="round"; ctx.stroke();
+    ctx.strokeStyle=resolvedColor; ctx.lineWidth=2; ctx.lineJoin="round"; ctx.stroke();
     if(showDots) points.forEach((p,i)=>{
       ctx.beginPath(); ctx.arc(sx(i),sy(p.value),3.5,0,Math.PI*2);
-      ctx.fillStyle=color; ctx.fill(); ctx.strokeStyle="var(--bg)"; ctx.lineWidth=2; ctx.stroke();
+      ctx.fillStyle=resolvedColor; ctx.fill(); ctx.strokeStyle=bgColor; ctx.lineWidth=2; ctx.stroke();
     });
   }
   useEffect(()=>{
@@ -1153,6 +1190,20 @@ function StrengthTrendPanel({workouts,exercises,displayUnit}){
   );
 }
 
+class StatsErrorBoundary extends React.Component{
+  constructor(p){super(p);this.state={crashed:false,err:null};}
+  static getDerivedStateFromError(e){return{crashed:true,err:e};}
+  componentDidCatch(e,info){console.error('StatsTab crash:',e,info);}
+  render(){
+    if(this.state.crashed)return React.createElement('div',{style:{padding:32,textAlign:'center',color:'var(--muted)',display:'flex',flexDirection:'column',alignItems:'center',gap:12}},
+      React.createElement('div',{style:{fontSize:40}},'📊'),
+      React.createElement('div',{style:{fontSize:16,fontWeight:700,color:'var(--text)'}},"Stats couldn't load"),
+      React.createElement('div',{style:{fontSize:13}},'Try logging a workout first, or tap to retry.'),
+      React.createElement('button',{onClick:()=>this.setState({crashed:false,err:null}),style:{marginTop:8,padding:'8px 20px',background:'var(--accent)',border:'none',borderRadius:10,color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}},'Retry')
+    );
+    return this.props.children;
+  }
+}
 function StatsTab({workouts,exercises,bodyweight,onSetBW,preferredUnit,onSetPreferredUnit}){
   const[editBW,setEditBW]=useState(false);
   const[bwIn,setBwIn]=useState(String(bodyweight));
@@ -1882,7 +1933,17 @@ function SettingsTab({data,onRestore,isOnline,preferredUnit,onSetPreferredUnit})
   const[driveRestore,setDriveRestore]=useState(null); // {data, modifiedTime}
   const[autoBackup,setAutoBackup]=useState(()=>getDrivePrefs().autoBackup||false);
   const[lastBackup,setLastBackup]=useState(()=>{const t=getDrivePrefs().lastBackup;return t?new Date(t):null;});
-  const clientIdSet = GOOGLE_CLIENT_ID !== "YOUR_GOOGLE_CLIENT_ID_HERE";
+  const[clientId,setClientIdState]=useState(()=>getGoogleClientId());
+  const[clientIdInput,setClientIdInput]=useState(()=>getGoogleClientId());
+  const[clientIdSaved,setClientIdSaved]=useState(false);
+  const clientIdSet=!!clientId;
+  function saveClientId(){
+    const v=clientIdInput.trim();
+    setGoogleClientId(v);
+    setClientIdState(v);
+    setClientIdSaved(true);
+    setTimeout(()=>setClientIdSaved(false),2000);
+  }
 
   const fileRef=useRef(null);
 
@@ -1943,7 +2004,7 @@ function SettingsTab({data,onRestore,isOnline,preferredUnit,onSetPreferredUnit})
   function confirmImport(){ onRestore(importPreview); setImportState("success"); setImportPreview(null); }
 
   async function handleDriveBackup(){
-    if(!clientIdSet){ setDriveMsg("Please set your Google Client ID first (see comments in the HTML)"); setDriveStatus("error"); return; }
+    if(!clientIdSet){ setDriveMsg("Please enter your Google Client ID in the Drive Backup settings first"); setDriveStatus("error"); return; }
     setDriveStatus("backing-up"); setDriveMsg("");
     try {
       await uploadToDrive(data);
@@ -2012,7 +2073,7 @@ function SettingsTab({data,onRestore,isOnline,preferredUnit,onSetPreferredUnit})
   );
 
   return(
-    React.createElement('div', { style: {display:"flex",flexDirection:"column",minHeight:"100%",background:"var(--bg)"},}
+    React.createElement('div', { style: {display:"flex",flexDirection:"column",background:"var(--bg)"},}
       , React.createElement('div', { style: {padding:"24px 16px 16px",borderBottom:"1px solid var(--border)"},}
         , React.createElement('div', { style: {fontSize:13,fontWeight:600,color:"var(--accent)",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:4},}, "Preferences")
         , React.createElement('div', { style: {fontSize:26,fontWeight:900,color:"var(--text)",letterSpacing:"-0.02em"},}, "Settings")
@@ -2022,14 +2083,20 @@ function SettingsTab({data,onRestore,isOnline,preferredUnit,onSetPreferredUnit})
         /* ── Google Drive Backup ── */
         , React.createElement(CollapsibleCard, { id: "drive", label: "Google Drive Backup"  ,}
 
-          , !clientIdSet&&(
-            React.createElement('div', { style: {margin:"12px 16px",background:"rgba(234,179,8,0.08)",border:"1px solid rgba(234,179,8,0.25)",borderRadius:12,padding:"12px 14px"},}
-              , React.createElement('div', { style: {fontSize:13,fontWeight:700,color:"#fbbf24",marginBottom:6},}, "⚠ Setup required"  )
-              , React.createElement('div', { style: {fontSize:12,color:"#92400e",lineHeight:1.6},}, "Replace "
-                 , React.createElement('code', { style: {background:"var(--surface2)",padding:"1px 5px",borderRadius:4,color:"#f59e0b"},}, "YOUR_GOOGLE_CLIENT_ID_HERE"), " in the HTML with your OAuth Client ID."        , React.createElement('br', null), "Steps: "
-                 , React.createElement('strong', { style: {color:"#fbbf24"},}, "console.cloud.google.com"), " → New project → APIs & Services → Credentials → Create OAuth Client ID → Web application → add your GitHub Pages URL to Authorised JavaScript origins."
+          , React.createElement('div', { style: {margin:"12px 16px 0",display:"flex",flexDirection:"column",gap:8},}
+            , React.createElement('div', { style: {fontSize:12,fontWeight:600,color:"var(--muted)",letterSpacing:"0.04em",textTransform:"uppercase"},}, "Google OAuth Client ID" )
+            , React.createElement('div', { style: {display:"flex",gap:8,alignItems:"center"},}
+              , React.createElement('input', { value: clientIdInput, onChange: e=>setClientIdInput(e.target.value), placeholder: "xxxxxxxx.apps.googleusercontent.com", style: {flex:1,background:"var(--surface2)",border:"1px solid var(--border2)",borderRadius:10,color:"var(--text)",padding:"8px 12px",fontSize:12,outline:"none",fontFamily:"inherit",minWidth:0},})
+              , React.createElement(Btn, { variant: "primary", onClick: saveClientId, style: {padding:"8px 14px",fontSize:12,flexShrink:0},}
+                , clientIdSaved?"✓ Saved":"Save"
               )
             )
+            , !clientIdSet&&React.createElement('div', { style: {fontSize:11,color:"var(--muted)",lineHeight:1.5},}
+              , "Get one free at "
+              , React.createElement('strong', { style: {color:"var(--accent)"},}, "console.cloud.google.com")
+              , " → APIs & Services → Credentials → Create OAuth Client ID → Web application. Add this page's URL to Authorised JavaScript origins."
+            )
+            , clientIdSet&&React.createElement('div', { style: {fontSize:11,color:"#22c55e"},}, "✓ Client ID configured" )
           )
 
           /* Back up now */
@@ -2433,7 +2500,7 @@ function App(){
     tab==="log"
       ?React.createElement(Log, { workouts: workouts, exercises: exercises, templates: templates||[], onNew: ()=>setScreen("new"), onQuickLog: ()=>setScreen("quicklog"), onView: w=>{setActive(w);setScreen("detail");}, onNewFromTemplate: startFromTemplate, onDeleteTemplate: deleteTemplate, showInstall: showInstall&&!isInstalled&&isOnline, onDismissInstall: ()=>setShowInstall(false), isOnline: isOnline, updateReady: updateReady, onApplyUpdate: applyUpdate,})
     :tab==="stats"
-      ?React.createElement(StatsTab, { workouts: workouts, exercises: exercises, bodyweight: bodyweight||80, onSetBW: setBW, preferredUnit: data.preferredUnit||"kg", onSetPreferredUnit: setPU,})
+      ?React.createElement(StatsErrorBoundary,null,React.createElement(StatsTab, { workouts: workouts, exercises: exercises, bodyweight: bodyweight||80, onSetBW: setBW, preferredUnit: data.preferredUnit||"kg", onSetPreferredUnit: setPU,}))
     :tab==="library"
       ?React.createElement(Library, { exercises: exercises, setExercises: setEx,})
       :React.createElement(SettingsTab, { data: data, onRestore: d=>{setData(d);saveData(d);}, isOnline: isOnline, preferredUnit: data.preferredUnit||"kg", onSetPreferredUnit: setPU,})
@@ -2455,7 +2522,7 @@ function App(){
           , React.createElement('span', { style: {fontSize:12,fontWeight:600,color:"#22c55e"},}, "Data auto-restored from local backup ✓"     )
         )
       )
-      , React.createElement('div', { style: {flex:1,minHeight:0,display:"flex",flexDirection:"column",paddingBottom:screen?"0":"calc(68px + max(20px, env(safe-area-inset-bottom)))"},}, main)
+      , React.createElement('div', { style: {flex:1,overflowY:"auto",display:"flex",flexDirection:"column",paddingBottom:screen?"0":"calc(68px + max(20px, env(safe-area-inset-bottom)))"},}, main)
       , !screen&&(
         React.createElement('div', { style: {display:"flex",background:"var(--surface)",borderTop:"1px solid var(--border)",padding:`8px 0 max(20px, env(safe-area-inset-bottom))`,position:"fixed",bottom:0,left:0,right:0,zIndex:100,maxWidth:430,margin:"0 auto"},}
           , TABS.map(t=>(
