@@ -35,7 +35,7 @@ window._swUpdateReady = false;
 window._swReg = null;
 
 if ('serviceWorker' in navigator) {
-  const CACHE_VERSION = 'fitness-v99';
+  const CACHE_VERSION = 'fitness-v100';
   const PAGE_URL = location.href.split('?')[0];
 
   // All assets the SW should cache (listed explicitly since we now have multiple files)
