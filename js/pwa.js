@@ -49,7 +49,6 @@ if ('serviceWorker' in navigator) {
     './js/google-drive.js',
     './js/utils.js',
     './js/constants.js',
-    './js/components/icons.js',
     './js/components/ui.js',
     './js/components/charts.js',
     './js/components/muscle-selector.js',
