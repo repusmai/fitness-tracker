@@ -2,6 +2,8 @@
 function LineChart({ points, color = "var(--accent)", height = 120, showDots = true, yLabel = "kg" }) {
   const canvasRef = React.useRef(null);
   const wrapRef   = React.useRef(null);
+  const lastSize  = React.useRef({ w: 0, h: 0 });
+  const rafRef    = React.useRef(null);
 
   function draw() {
     const canvas = canvasRef.current;
@@ -10,6 +12,13 @@ function LineChart({ points, color = "var(--accent)", height = 120, showDots = t
     const dpr  = window.devicePixelRatio || 1;
     const W    = wrapRef.current ? wrapRef.current.clientWidth : 320;
     const H    = height;
+
+    // Skip redraw if dimensions haven't actually changed — prevents the
+    // ResizeObserver ↔ canvas-resize feedback loop that causes the Stats
+    // page to flicker when scrolled to the bottom.
+    if (W === lastSize.current.w && H === lastSize.current.h) return;
+    lastSize.current = { w: W, h: H };
+
     canvas.width        = W * dpr;
     canvas.height       = H * dpr;
     canvas.style.width  = W + "px";
@@ -26,16 +35,48 @@ function LineChart({ points, color = "var(--accent)", height = 120, showDots = t
     const iW   = W - pad.l - pad.r;
     const iH   = H - pad.t - pad.b;
 
-    const sx = i => points.length < 2 ? pad.l + iW / 2 : pad.l + iW * i / (points.length - 1);
+    // Map dates to x-positions proportionally by time, not by index.
+    const times = points.map(p => new Date(p.date).getTime());
+    const tMin  = Math.min(...times);
+    const tMax  = Math.max(...times);
+    const sx = i => {
+      if (points.length < 2 || tMax === tMin) return pad.l + iW / 2;
+      return pad.l + iW * (times[i] - tMin) / (tMax - tMin);
+    };
     const sy = v => pad.t + (max === min ? iH / 2 : iH * (1 - (v - min) / (max - min)));
 
-    // Y-axis grid lines and labels
+    // Resolve CSS variables to actual colors at draw time so canvas can use them.
+    // Falls back to legible defaults if resolution fails (e.g. in mono theme).
+    const rootStyle  = getComputedStyle(document.documentElement);
+    const resolve    = v => rootStyle.getPropertyValue(v.replace(/var\((.+)\)/, '$1')).trim() || v;
+    const labelColor = (() => {
+      const raw = resolve("var(--muted)");
+      // If the color is too dark (luminance < 0.2 on a dark bg), use a lighter fallback.
+      // This catches the mono theme where --muted is #444444.
+      if (raw.startsWith('#')) {
+        const hex = raw.slice(1);
+        const r = parseInt(hex.slice(0,2),16)/255, g = parseInt(hex.slice(2,4),16)/255, b = parseInt(hex.slice(4,6),16)/255;
+        const lum = 0.2126*r + 0.7152*g + 0.0722*b;
+        if (lum < 0.25) return "#aaaaaa";
+      }
+      return raw || "var(--muted)";
+    })();
+    const gridColor  = (() => {
+      const raw = resolve("var(--surface2)");
+      if (raw.startsWith('#')) {
+        const hex = raw.slice(1);
+        const r = parseInt(hex.slice(0,2),16)/255, g = parseInt(hex.slice(2,4),16)/255, b = parseInt(hex.slice(4,6),16)/255;
+        const lum = 0.2126*r + 0.7152*g + 0.0722*b;
+        if (lum < 0.15) return "#333333";
+      }
+      return raw || "var(--surface2)";
+    })();
     for (let t = 0; t <= 4; t++) {
       const v = min + (max - min) * t / 4;
       const y = sy(v);
       ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y);
-      ctx.strokeStyle = "var(--surface2)"; ctx.lineWidth = 1; ctx.stroke();
-      ctx.fillStyle = "var(--muted)"; ctx.font = "bold 9px sans-serif";
+      ctx.strokeStyle = gridColor; ctx.lineWidth = 1; ctx.stroke();
+      ctx.fillStyle = labelColor; ctx.font = "bold 9px sans-serif";
       ctx.textAlign = "right"; ctx.textBaseline = "middle";
       ctx.fillText(Math.round(v) + yLabel, pad.l - 4, y);
     }
@@ -45,13 +86,16 @@ function LineChart({ points, color = "var(--accent)", height = 120, showDots = t
       const d = new Date(iso);
       return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
     };
-    ctx.fillStyle = "var(--muted)"; ctx.font = "9px sans-serif"; ctx.textBaseline = "top";
+    ctx.fillStyle = labelColor; ctx.font = "9px sans-serif"; ctx.textBaseline = "top";
     if (points.length > 1) {
       ctx.textAlign = "left";  ctx.fillText(fmtShort(points[0].date), pad.l, H - pad.b + 4);
       ctx.textAlign = "right"; ctx.fillText(fmtShort(points[points.length - 1].date), W - pad.r, H - pad.b + 4);
       if (points.length > 3) {
-        const mid = Math.floor(points.length / 2);
-        ctx.textAlign = "center"; ctx.fillText(fmtShort(points[mid].date), sx(mid), H - pad.b + 4);
+        const tMid = (tMin + tMax) / 2;
+        const midIdx = times.reduce((best, t, i) => Math.abs(t - tMid) < Math.abs(times[best] - tMid) ? i : best, 0);
+        if (midIdx > 0 && midIdx < points.length - 1) {
+          ctx.textAlign = "center"; ctx.fillText(fmtShort(points[midIdx].date), sx(midIdx), H - pad.b + 4);
+        }
       }
     }
 
@@ -79,11 +123,16 @@ function LineChart({ points, color = "var(--accent)", height = 120, showDots = t
   }
 
   React.useEffect(() => {
+    lastSize.current = { w: 0, h: 0 }; // reset so first draw always runs
     draw();
     if (!wrapRef.current) return;
-    const ro = new ResizeObserver(() => draw());
+    const ro = new ResizeObserver(() => {
+      // Debounce via rAF so rapid scroll-driven resize events are collapsed
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(() => draw());
+    });
     ro.observe(wrapRef.current);
-    return () => ro.disconnect();
+    return () => { ro.disconnect(); if (rafRef.current) cancelAnimationFrame(rafRef.current); };
   }, [points, color, height, showDots]);
 
   if (!points.length) {

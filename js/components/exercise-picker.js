@@ -36,9 +36,9 @@ function Picker({ exercises, onPick, onClose, onCreateExercise }) {
 
   const kbHeight = useKeyboardHeight();
 
-  return React.createElement('div', { style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 100, display: "flex", alignItems: "flex-end" } },
+  return React.createElement('div', { style: { position: "fixed", inset: 0, bottom: kbHeight, background: "rgba(0,0,0,0.8)", zIndex: 100, display: "flex", alignItems: "flex-end", transition: "bottom 0.15s ease" } },
     React.createElement('div', {
-      style: { background: "var(--surface)", borderRadius: "20px 20px 0 0", width: "100%", maxHeight: `calc(92vh - ${kbHeight}px)`, overflow: "hidden", display: "flex", flexDirection: "column", border: "1px solid var(--border)", transition: "max-height 0.15s ease" }
+      style: { background: "var(--surface)", borderRadius: "20px 20px 0 0", width: "100%", maxHeight: "92%", overflow: "hidden", display: "flex", flexDirection: "column", border: "1px solid var(--border)" }
     },
       // Header
       React.createElement('div', { style: { padding: "20px 16px 12px", borderBottom: "1px solid var(--border)", flexShrink: 0 } },
@@ -104,7 +104,7 @@ function Picker({ exercises, onPick, onClose, onCreateExercise }) {
       ),
 
       // Exercise list
-      !creating && React.createElement('div', { style: { overflowY: "auto", overflowX: "hidden", flex: 1, paddingBottom: 16, WebkitOverflowScrolling: "touch" } },
+      !creating && React.createElement('div', { style: { overflowY: "auto", overflowX: "hidden", flex: 1, paddingBottom: 24, WebkitOverflowScrolling: "touch" } },
         Object.keys(grouped).length === 0 && React.createElement('div', { style: { color: "var(--muted2)", textAlign: "center", padding: 30, fontSize: 14 } },
           "No exercises found",
           onCreateExercise && React.createElement('div', { style: { marginTop: 10, fontSize: 13, color: "var(--muted)" } }, "Tap ", React.createElement('strong', { style: { color: "var(--accent)" } }, "+ New"), " to create one")

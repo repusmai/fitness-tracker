@@ -45,7 +45,9 @@ function SettingsTab({ data, onRestore, isOnline, preferredUnit, onSetPreferredU
   const [autoBackup,    setAutoBackup]    = React.useState(() => getDrivePrefs().autoBackup || false);
   const [lastBackup,    setLastBackup]    = React.useState(() => { const t = getDrivePrefs().lastBackup; return t ? new Date(t) : null; });
   const [collapsed,     setCollapsed]     = React.useState({});
-  const clientIdSet = GOOGLE_CLIENT_ID !== "YOUR_GOOGLE_CLIENT_ID_HERE";
+  const [clientId,     setClientId]     = React.useState(() => getGoogleClientId());
+  const [clientIdSaved, setClientIdSaved] = React.useState(false);
+  const clientIdSet = clientId.trim().length > 20;
   const fileRef = React.useRef(null);
 
   React.useEffect(() => { listSnapshots().then(snaps => setSnapshots(snaps)); }, []);
@@ -120,7 +122,7 @@ function SettingsTab({ data, onRestore, isOnline, preferredUnit, onSetPreferredU
   function confirmImport() { onRestore(importPreview); setImportState("success"); setImportPreview(null); }
 
   async function handleDriveBackup() {
-    if (!clientIdSet) { setDriveMsg("Please set your Google Client ID first (see comments in google-drive.js)"); setDriveStatus("error"); return; }
+    if (!clientIdSet) { setDriveMsg("Please enter your Google Client ID in the Drive settings below"); setDriveStatus("error"); return; }
     setDriveStatus("backing-up"); setDriveMsg("");
     try {
       await uploadToDrive(data);
@@ -130,7 +132,7 @@ function SettingsTab({ data, onRestore, isOnline, preferredUnit, onSetPreferredU
   }
 
   async function handleDriveRestore() {
-    if (!clientIdSet) { setDriveMsg("Please set your Google Client ID first"); setDriveStatus("error"); return; }
+    if (!clientIdSet) { setDriveMsg("Please enter your Google Client ID in the Drive settings below"); setDriveStatus("error"); return; }
     setDriveStatus("restoring"); setDriveMsg("");
     try {
       const result = await restoreFromDrive();
@@ -158,9 +160,22 @@ function SettingsTab({ data, onRestore, isOnline, preferredUnit, onSetPreferredU
 
       // ── Google Drive ──────────────────────────────────────────────────────
       React.createElement(CollapsibleCard, { id: "drive", label: "Google Drive Backup" },
-        !clientIdSet && React.createElement('div', { style: { margin: "12px 16px", background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.25)", borderRadius: 12, padding: "12px 14px" } },
-          React.createElement('div', { style: { fontSize: 13, fontWeight: 700, color: "#fbbf24", marginBottom: 6 } }, "⚠ Setup required"),
-          React.createElement('div', { style: { fontSize: 12, color: "#92400e", lineHeight: 1.6 } }, "Edit ", React.createElement('code', { style: { background: "var(--surface2)", padding: "1px 5px", borderRadius: 4, color: "#f59e0b" } }, "GOOGLE_CLIENT_ID"), " in js/google-drive.js with your OAuth Client ID.")
+        React.createElement('div', { style: { margin: "12px 16px 4px", display: "flex", flexDirection: "column", gap: 8 } },
+          React.createElement('div', { style: { fontSize: 12, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em" } }, "OAuth Client ID"),
+          React.createElement('div', { style: { fontSize: 11, color: "var(--muted)", marginBottom: 2, lineHeight: 1.5 } }, clientIdSet ? "✓ Client ID saved" : "Paste your Google OAuth 2.0 Client ID to enable Drive backup."),
+          React.createElement('div', { style: { display: "flex", gap: 8 } },
+            React.createElement('input', {
+              type: "text",
+              value: clientId,
+              onChange: e => { setClientId(e.target.value); setClientIdSaved(false); },
+              placeholder: "xxxxxxxx.apps.googleusercontent.com",
+              style: { flex: 1, background: "var(--surface2)", border: "1px solid var(--border2)", borderRadius: 10, color: "var(--text)", padding: "9px 12px", fontSize: 13, outline: "none", fontFamily: "inherit", minWidth: 0 }
+            }),
+            React.createElement('button', {
+              onClick: () => { setGoogleClientId(clientId); setClientIdSaved(true); },
+              style: { background: clientIdSet ? "var(--grad)" : "var(--surface2)", border: "none", borderRadius: 10, padding: "9px 14px", cursor: "pointer", color: clientIdSet ? "#fff" : "var(--subtle)", fontSize: 13, fontWeight: 700, fontFamily: "inherit", flexShrink: 0 }
+            }, clientIdSaved ? "Saved ✓" : "Save")
+          )
         ),
         React.createElement('div', { style: { padding: "14px 16px", borderBottom: "1px solid var(--border)" } },
           React.createElement('div', { style: { display: "flex", alignItems: "center", gap: 12, marginBottom: driveStatus ? "10px" : 0 } },

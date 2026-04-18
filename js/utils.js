@@ -4,6 +4,8 @@ const { useState, useEffect, useRef } = React;
 
 // ── Unit Conversion ───────────────────────────────────────────────────────────
 
+const KG_TO_LBS = 2.20462;
+const LBS_TO_KG = 1 / KG_TO_LBS;
 
 function convertWeight(value, fromUnit, toUnit) {
   if (fromUnit === toUnit) return value;
@@ -165,7 +167,12 @@ function useScrollHide(threshold = 8) {
     const onScroll = () => {
       const y = el.scrollTop;
       if (Math.abs(y - lastY.current) < threshold) return;
-      setHidden(y > lastY.current && y > 50);
+      // Don't hide the header when within 60px of the bottom — prevents
+      // the padding-top change from shifting content and causing a flicker loop.
+      const nearBottom = el.scrollHeight - y - el.clientHeight < 60;
+      if (!nearBottom) {
+        setHidden(y > lastY.current && y > 50);
+      }
       lastY.current = y;
     };
 

@@ -8,7 +8,8 @@
 //      e.g. https://yourusername.github.io
 //   5. Replace the placeholder below with your actual Client ID.
 //
-const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID_HERE";
+function getGoogleClientId() { return localStorage.getItem("google_client_id") || ""; }
+function setGoogleClientId(id) { localStorage.setItem("google_client_id", id.trim()); }
 const DRIVE_SCOPE      = "https://www.googleapis.com/auth/drive.file";
 const DRIVE_FILE_NAME  = "fitness-tracker-backup.json";
 
@@ -39,7 +40,7 @@ async function getAccessToken() {
 
   return new Promise((resolve, reject) => {
     _tokenClient = window.google.accounts.oauth2.initTokenClient({
-      client_id: GOOGLE_CLIENT_ID,
+      client_id: getGoogleClientId(),
       scope: DRIVE_SCOPE,
       callback: response => {
         if (response.error) { reject(new Error(response.error)); return; }
