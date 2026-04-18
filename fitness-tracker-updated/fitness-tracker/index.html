@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Fitness Tracker</title>
+
+  <!-- PWA meta tags -->
+  <meta name="application-name" content="Fitness Tracker" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Fitness" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#0a0f1e" />
+  <meta name="description" content="Track your workouts, sets, reps and more." />
+
+  <!-- PWA manifest (generated at runtime to support single-file deploy) -->
+  <link rel="manifest" id="manifest-placeholder" />
+
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div id="root"></div>
+
+  <!--
+    React + ReactDOM are loaded from the js/ folder (inlined builds for offline support).
+    To update React, replace these files with the latest production builds from:
+    https://unpkg.com/react@19/umd/react.production.min.js
+    https://unpkg.com/react-dom@19/umd/react-dom.production.min.js
+  -->
+  <!-- React 19 + ReactDOM combined production build (extracted from original, offline-capable) -->
+  <script src="js/react.production.min.js"></script>
+
+  <!-- App modules — load order matters -->
+  <script src="js/pwa.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/themes.js"></script>
+  <script src="js/constants.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/google-drive.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/components/ui.js"></script>
+  <script src="js/components/charts.js"></script>
+  <script src="js/components/muscle-selector.js"></script>
+  <script src="js/components/exercise-picker.js"></script>
+  <script src="js/components/set-row.js"></script>
+  <script src="js/components/workout-entry-card.js"></script>
+  <script src="js/components/install-banner.js"></script>
+  <script src="js/screens/editor.js"></script>
+  <script src="js/screens/detail.js"></script>
+  <script src="js/screens/quick-log.js"></script>
+  <script src="js/screens/log.js"></script>
+  <script src="js/screens/stats.js"></script>
+  <script src="js/screens/library.js"></script>
+  <script src="js/screens/settings.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

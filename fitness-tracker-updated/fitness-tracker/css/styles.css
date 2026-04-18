@@ -1,0 +1,49 @@
+/* ── Reset & Base ────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  background: var(--bg);
+  font-family: 'DM Sans', 'Segoe UI', sans-serif;
+  overscroll-behavior: none;
+}
+
+input, textarea, button, select {
+  font-family: inherit;
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── CSS Variables (default: Galaxy theme) ───────────────────────────────────── */
+:root {
+  --bg: #0a0f1e;
+  --surface: #0f172a;
+  --surface2: #1e293b;
+  --border: #1e293b;
+  --border2: #334155;
+  --muted: #475569;
+  --muted2: #64748b;
+  --subtle: #94a3b8;
+  --text: #f1f5f9;
+  --text2: #e2e8f0;
+  --accent: #6366f1;
+  --accent2: #8b5cf6;
+  --accent-soft: rgba(99, 102, 241, 0.12);
+  --accent-glow: rgba(99, 102, 241, 0.25);
+  --accent-light: #a5b4fc;
+  --accent-mid: #818cf8;
+  --grad: linear-gradient(135deg, #6366f1, #8b5cf6);
+}
+
+/* ── Animations ──────────────────────────────────────────────────────────────── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
