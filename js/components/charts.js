@@ -241,7 +241,7 @@ function GroupStrengthCharts({ workouts, exercises, displayUnit }) {
 
       return React.createElement('div', {
         key: group.key,
-        style: { background: "var(--surface)", borderRadius: 14, border: "1px solid var(--border)", overflow: "hidden" },
+        style: { background: "var(--surface)", borderRadius: 14, border: "1px solid var(--border)" },
       },
         // Header row
         React.createElement('div', { style: { padding: "12px 14px 8px" } },

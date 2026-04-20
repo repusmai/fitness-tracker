@@ -31,7 +31,7 @@ function ThemeSelector() {
 }
 
 // ── Settings Tab ──────────────────────────────────────────────────────────────
-function SettingsTab({ data, onRestore, isOnline, preferredUnit, onSetPreferredUnit }) {
+function SettingsTab({ data, onRestore, isOnline, preferredUnit, onSetPreferredUnit, appVersion }) {
   const [updateStatus,  setUpdateStatus]  = React.useState(null);
   const [updating,      setUpdating]      = React.useState(false);
   const [importState,   setImportState]   = React.useState(null);
@@ -156,7 +156,7 @@ function SettingsTab({ data, onRestore, isOnline, preferredUnit, onSetPreferredU
       React.createElement('div', { style: { fontSize: 13, fontWeight: 600, color: "var(--accent)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 } }, "Preferences"),
       React.createElement('div', { style: { fontSize: 26, fontWeight: 900, color: "var(--text)", letterSpacing: "-0.02em" } }, "Settings")
     ),
-    React.createElement('div', { style: { overflowY: "auto", overflowX: "hidden", flex: 1, padding: "16px", display: "flex", flexDirection: "column", gap: 14, WebkitOverflowScrolling: "touch" } },
+    React.createElement('div', { 'data-main-scroll': true, style: { overflowY: "auto", overflowX: "hidden", flex: 1, padding: "16px", display: "flex", flexDirection: "column", gap: 14, WebkitOverflowScrolling: "touch" } },
 
       // ── Google Drive ──────────────────────────────────────────────────────
       React.createElement(CollapsibleCard, { id: "drive", label: "Google Drive Backup" },
@@ -311,7 +311,7 @@ function SettingsTab({ data, onRestore, isOnline, preferredUnit, onSetPreferredU
       ),
 
       React.createElement('div', { style: { textAlign: "center", padding: "8px 0 4px" } },
-        React.createElement('span', { style: { fontSize: 11, color: "var(--border2)" } }, "Fitness Tracker · v27"))
+        React.createElement('span', { style: { fontSize: 11, color: "var(--border2)" } }, `Fitness Tracker · v${appVersion || "—"}`))
     ),
     React.createElement('style', null, `@keyframes spin{to{transform:rotate(360deg)}}`)
   );

@@ -1,5 +1,6 @@
 // ── App — Root Component ──────────────────────────────────────────────────────
 // Wires together all screens and manages top-level state.
+// APP_VERSION is declared in index.html so pwa.js can also read it.
 
 function App() {
   const [data,         setData]         = React.useState(() => loadData());
@@ -94,7 +95,37 @@ function App() {
     else { window.location.reload(); }
   }
 
-  // ── Active workout for template start ────────────────────────────────────
+  // ── Bottom nav hide/show on scroll ───────────────────────────────────────
+  const [navHidden, setNavHidden] = React.useState(false);
+  const navLastY  = React.useRef(0);
+  const navScrollEl = React.useRef(null);
+
+  // Re-attach listener whenever tab or screen changes (different scroll containers)
+  React.useEffect(() => {
+    if (screen) { setNavHidden(false); return; }
+    // Small delay so the new screen's DOM is mounted
+    const timer = setTimeout(() => {
+      // Find the scrollable child of the main content area
+      const main = document.querySelector('[data-main-scroll]');
+      if (!main) return;
+      navScrollEl.current = main;
+      navLastY.current = main.scrollTop;
+
+      const onScroll = () => {
+        const y = main.scrollTop;
+        const dy = y - navLastY.current;
+        if (Math.abs(dy) < 6) return;
+        setNavHidden(dy > 0 && y > 60);
+        navLastY.current = y;
+      };
+      main.addEventListener('scroll', onScroll, { passive: true });
+      navScrollEl._cleanup = () => main.removeEventListener('scroll', onScroll);
+    }, 50);
+    return () => {
+      clearTimeout(timer);
+      navScrollEl._cleanup?.();
+    };
+  }, [tab, screen]);
   const activeWorkout = active || (screen === "new-from-template" ? window._pendingTemplateWorkout : null);
 
   // ── Screen routing ────────────────────────────────────────────────────────
@@ -124,7 +155,7 @@ function App() {
       ? React.createElement(StatsTab, { workouts, exercises, bodyweight: bodyweight || 80, onSetBW: setBW, preferredUnit: data.preferredUnit || "kg", onSetPreferredUnit: setPU })
     : tab === "library"
       ? React.createElement(Library, { exercises, setExercises: setEx })
-      : React.createElement(SettingsTab, { data, onRestore: d => { setData(d); saveData(d); }, isOnline, preferredUnit: data.preferredUnit || "kg", onSetPreferredUnit: setPU })
+      : React.createElement(SettingsTab, { data, onRestore: d => { setData(d); saveData(d); }, isOnline, preferredUnit: data.preferredUnit || "kg", onSetPreferredUnit: setPU, appVersion: APP_VERSION })
   );
 
   const TABS = [
@@ -154,7 +185,7 @@ function App() {
 
     // Bottom nav bar (hidden when a full-screen modal is open)
     !screen && React.createElement('div', {
-      style: { display: "flex", background: "var(--surface)", borderTop: "1px solid var(--border)", padding: `8px 0 max(12px, env(safe-area-inset-bottom))` }
+      style: { display: "flex", background: "var(--surface)", borderTop: "1px solid var(--border)", padding: `8px 0 max(12px, env(safe-area-inset-bottom))`, transform: navHidden ? "translateY(100%)" : "translateY(0)", transition: "transform 0.25s ease", willChange: "transform" }
     },
       TABS.map(t => React.createElement('button', {
         key: t.id, onClick: () => setTab(t.id),
