@@ -146,6 +146,151 @@ function LineChart({ points, color = "var(--accent)", height = 120, showDots = t
   );
 }
 
+// ── Group Strength Charts ─────────────────────────────────────────────────────
+// Each muscle group plots exactly one "representative" exercise.
+// Auto-selects the exercise with the highest all-time e1RM (primary muscle only).
+// The user can override per group via a small picker inline on the card.
+
+const GROUP_OVERRIDE_KEY = "group_chart_overrides"; // localStorage key
+
+function loadGroupOverrides() {
+  try { return JSON.parse(localStorage.getItem(GROUP_OVERRIDE_KEY) || "{}"); } catch { return {}; }
+}
+function saveGroupOverrides(overrides) {
+  try { localStorage.setItem(GROUP_OVERRIDE_KEY, JSON.stringify(overrides)); } catch {}
+}
+
+function GroupStrengthCharts({ workouts, exercises, displayUnit }) {
+  const [overrides, setOverrides] = React.useState(() => loadGroupOverrides());
+  const [picking, setPicking]     = React.useState(null); // group key currently being overridden
+
+  // For each group, find all exercises whose PRIMARY muscle belongs to this group,
+  // that have been logged at least once, with their all-time best e1RM.
+  const groupData = React.useMemo(() => {
+    return MUSCLE_GROUPS.map(group => {
+      // Map exerciseId -> best e1RM (kg), only counting primary muscle match
+      const exMap = {};
+      for (const workout of workouts) {
+        for (const entry of workout.entries) {
+          const ex = exercises.find(e => e.id === entry.exerciseId);
+          if (!ex) continue;
+          // Only count if this group contains the exercise's PRIMARY muscle
+          const primaryMuscle = ex.primaryMuscles?.[0] || ex.muscles?.[0];
+          if (!group.muscles.includes(primaryMuscle)) continue;
+          for (const s of entry.sets) {
+            const unit = s.unit || entry.unit || workout.unit || "kg";
+            const wKg  = unit === "lbs" ? parseFloat(s.weight) * LBS_TO_KG : parseFloat(s.weight);
+            const reps = parseInt(s.reps);
+            if (!wKg || !reps) continue;
+            const rm = reps === 1 ? wKg : wKg * (1 + reps / 30);
+            if (!exMap[entry.exerciseId] || rm > exMap[entry.exerciseId].best1rm) {
+              exMap[entry.exerciseId] = { ex, best1rm: rm };
+            }
+          }
+        }
+      }
+
+      const logged = Object.entries(exMap)
+        .map(([id, v]) => ({ id, name: v.ex.name, best1rm: v.best1rm }))
+        .sort((a, b) => b.best1rm - a.best1rm);
+
+      if (!logged.length) return { group, logged, repId: null, pts: [] };
+
+      // Pick representative: manual override if set and still valid, else highest e1RM
+      const repId = (overrides[group.key] && logged.find(e => e.id === overrides[group.key]))
+        ? overrides[group.key]
+        : logged[0].id;
+
+      // Build chart points for repId
+      const pts = [];
+      for (const w of [...workouts].sort((a, b) => a.date.localeCompare(b.date))) {
+        const entry = w.entries.find(e => e.exerciseId === repId);
+        if (!entry) continue;
+        let best = 0;
+        for (const s of entry.sets) {
+          const unit = s.unit || entry.unit || w.unit || "kg";
+          const wKg  = unit === "lbs" ? parseFloat(s.weight) * LBS_TO_KG : parseFloat(s.weight);
+          const reps = parseInt(s.reps);
+          if (!wKg || !reps) continue;
+          const rm = reps === 1 ? wKg : wKg * (1 + reps / 30);
+          if (rm > best) best = rm;
+        }
+        if (best > 0) {
+          const display = displayUnit === "lbs" ? Math.round(best * KG_TO_LBS * 10) / 10 : Math.round(best * 10) / 10;
+          pts.push({ date: w.date, value: display });
+        }
+      }
+
+      return { group, logged, repId, pts };
+    }).filter(d => d.pts.length > 0);
+  }, [workouts, exercises, overrides, displayUnit]);
+
+  function setOverride(groupKey, exId) {
+    const next = { ...overrides, [groupKey]: exId };
+    setOverrides(next);
+    saveGroupOverrides(next);
+    setPicking(null);
+  }
+
+  return React.createElement('div', { style: { display: "flex", flexDirection: "column", gap: 12 } },
+    groupData.map(({ group, logged, repId, pts }) => {
+      const col     = resolveCssColor(group.color);
+      const latest  = pts[pts.length - 1];
+      const repName = logged.find(e => e.id === repId)?.name || "";
+      const isPicking = picking === group.key;
+
+      return React.createElement('div', {
+        key: group.key,
+        style: { background: "var(--surface)", borderRadius: 14, border: "1px solid var(--border)", overflow: "hidden" },
+      },
+        // Header row
+        React.createElement('div', { style: { padding: "12px 14px 8px" } },
+          React.createElement('div', { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 } },
+            React.createElement('div', null,
+              React.createElement('div', { style: { fontSize: 12, fontWeight: 700, color: col, textTransform: "uppercase", letterSpacing: "0.06em" } }, group.label),
+              React.createElement('div', { style: { fontSize: 18, fontWeight: 900, color: "var(--text)", marginTop: 2 } },
+                `${latest.value} ${displayUnit}`)
+            ),
+            React.createElement('div', { style: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 } },
+              React.createElement('div', { style: { fontSize: 10, color: "var(--muted2)" } }, "best est. 1RM"),
+              // Exercise name + override button
+              React.createElement('button', {
+                onClick: () => setPicking(isPicking ? null : group.key),
+                style: { background: isPicking ? col : `${col}22`, border: `1px solid ${col}44`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5, transition: "all 0.15s" }
+              },
+                React.createElement('span', { style: { fontSize: 11, fontWeight: 600, color: isPicking ? "#fff" : col, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, repName),
+                React.createElement('span', { style: { fontSize: 10, color: isPicking ? "rgba(255,255,255,0.7)" : col } }, isPicking ? "✕" : "▾")
+              )
+            )
+          ),
+
+          // Inline exercise picker dropdown
+          isPicking && React.createElement('div', { style: { background: "var(--surface2)", borderRadius: 10, border: "1px solid var(--border2)", overflow: "hidden", marginBottom: 8 } },
+            logged.map((e, i) => React.createElement('button', {
+              key: e.id,
+              onClick: () => setOverride(group.key, e.id),
+              style: {
+                width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "9px 12px", background: e.id === repId ? `${col}22` : "none",
+                border: "none", borderBottom: i < logged.length - 1 ? "1px solid var(--border)" : "none",
+                cursor: "pointer", fontFamily: "inherit", textAlign: "left"
+              }
+            },
+              React.createElement('span', { style: { fontSize: 13, fontWeight: e.id === repId ? 700 : 500, color: e.id === repId ? col : "var(--text)" } }, e.name),
+              e.id === repId && React.createElement('span', { style: { fontSize: 11, color: col } }, "✓")
+            ))
+          )
+        ),
+
+        // Chart
+        React.createElement('div', { style: { padding: "0 14px 12px" } },
+          React.createElement(LineChart, { points: pts, color: col, height: 90, showDots: pts.length <= 20, yLabel: ` ${displayUnit}` })
+        )
+      );
+    })
+  );
+}
+
 // ── Strength Trend Panel ──────────────────────────────────────────────────────
 function StrengthTrendPanel({ workouts, exercises, displayUnit }) {
   const [selected, setSelected] = React.useState(null);
@@ -239,51 +384,4 @@ function StrengthTrendPanel({ workouts, exercises, displayUnit }) {
   );
 }
 
-// ── Group Strength Charts ─────────────────────────────────────────────────────
-function GroupStrengthCharts({ workouts, exercises, displayUnit }) {
-  return React.createElement('div', { style: { display: "flex", flexDirection: "column", gap: 12 } },
-    MUSCLE_GROUPS.map(group => {
-      const pts = [];
-      const sorted = [...workouts].sort((a, b) => a.date.localeCompare(b.date));
-      for (const w of sorted) {
-        let best = 0;
-        for (const entry of w.entries) {
-          const ex = exercises.find(e => e.id === entry.exerciseId);
-          if (!ex?.muscles?.some(m => group.muscles.includes(m))) continue;
-          for (const s of entry.sets) {
-            const unit = s.unit || entry.unit || w.unit || "kg";
-            const wKg  = unit === "lbs" ? parseFloat(s.weight) * LBS_TO_KG : parseFloat(s.weight);
-            const reps  = parseInt(s.reps);
-            if (!wKg || !reps) continue;
-            const rm = reps === 1 ? wKg : wKg * (1 + reps / 30);
-            if (rm > best) best = rm;
-          }
-        }
-        if (best > 0) {
-          const display = displayUnit === "lbs" ? Math.round(best * KG_TO_LBS * 10) / 10 : Math.round(best * 10) / 10;
-          pts.push({ date: w.date, value: display });
-        }
-      }
-      if (!pts.length) return null;
 
-      const col = resolveCssColor(group.color);
-      const latest = pts[pts.length - 1];
-      return React.createElement('div', {
-        key: group.key,
-        style: { background: "var(--surface)", borderRadius: 14, border: "1px solid var(--border)", overflow: "hidden" },
-      },
-        React.createElement('div', { style: { padding: "12px 14px 8px", display: "flex", justifyContent: "space-between", alignItems: "center" } },
-          React.createElement('div', null,
-            React.createElement('div', { style: { fontSize: 12, fontWeight: 700, color: col, textTransform: "uppercase", letterSpacing: "0.06em" } }, group.label),
-            React.createElement('div', { style: { fontSize: 18, fontWeight: 900, color: "var(--text)", marginTop: 2 } },
-              `${latest.value} ${displayUnit}`)
-          ),
-          React.createElement('div', { style: { fontSize: 10, color: "var(--muted2)" } }, "best est. 1RM")
-        ),
-        React.createElement('div', { style: { padding: "0 14px 12px" } },
-          React.createElement(LineChart, { points: pts, color: col, height: 90, showDots: pts.length <= 20, yLabel: ` ${displayUnit}` })
-        )
-      );
-    }).filter(Boolean)
-  );
-}
