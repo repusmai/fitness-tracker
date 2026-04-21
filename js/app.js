@@ -182,7 +182,7 @@ function App() {
     ),
 
     // Main content
-    React.createElement('div', { style: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", paddingBottom: screen || navHidden ? 0 : 60, transition: "padding-bottom 0.25s ease" } }, mainContent),
+    React.createElement('div', { style: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column"} }, mainContent),
 
     // Bottom nav bar (hidden when a full-screen modal is open)
     !screen && React.createElement('div', {
