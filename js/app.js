@@ -116,7 +116,8 @@ function App() {
         const dy = y - navLastY.current;
         if (Math.abs(dy) < 6) return;
         const nearBottom = main.scrollHeight - y - main.clientHeight < 80;
-        if (!nearBottom) setNavHidden(dy > 0 && y > 60);
+        if (nearBottom) { setNavHidden(false); navLastY.current = y; return; }
+        setNavHidden(dy > 0 && y > 60);
         navLastY.current = y;
       };
       main.addEventListener('scroll', onScroll, { passive: true });
