@@ -185,7 +185,7 @@ function App() {
 
     // Bottom nav bar (hidden when a full-screen modal is open)
     !screen && React.createElement('div', {
-      style: { display: "flex", background: "var(--surface)", borderTop: "1px solid var(--border)", padding: `8px 0 max(12px, env(safe-area-inset-bottom))`, transform: navHidden ? "translateY(100%)" : "translateY(0)", transition: "transform 0.25s ease", willChange: "transform" }
+      style: { display: "flex", background: "var(--surface)", borderTop: navHidden ? "none" : "1px solid var(--border)", padding: navHidden ? "0" : `8px 0 max(12px, env(safe-area-inset-bottom))`, maxHeight: navHidden ? "0" : "80px", overflow: "hidden", transition: "max-height 0.25s ease, padding 0.25s ease" }
     },
       TABS.map(t => React.createElement('button', {
         key: t.id, onClick: () => setTab(t.id),
