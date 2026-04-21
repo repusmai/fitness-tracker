@@ -181,11 +181,11 @@ function App() {
     ),
 
     // Main content
-    React.createElement('div', { style: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" } }, mainContent),
+    React.createElement('div', { style: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", paddingBottom: screen || navHidden ? 0 : 60, transition: "padding-bottom 0.25s ease" } }, mainContent),
 
     // Bottom nav bar (hidden when a full-screen modal is open)
     !screen && React.createElement('div', {
-      style: { display: "flex", background: "var(--surface)", borderTop: navHidden ? "none" : "1px solid var(--border)", padding: navHidden ? "0" : `8px 0 max(12px, env(safe-area-inset-bottom))`, maxHeight: navHidden ? "0" : "80px", overflow: "hidden", transition: "max-height 0.25s ease, padding 0.25s ease" }
+      style: { position: "fixed", bottom: 0, left: "50%", transform: navHidden ? "translate(-50%, 100%)" : "translate(-50%, 0)", width: "100%", maxWidth: 430, display: "flex", background: "var(--surface)", borderTop: "1px solid var(--border)", padding: `8px 0 max(12px, env(safe-area-inset-bottom))`, transition: "transform 0.25s ease", zIndex: 10 }
     },
       TABS.map(t => React.createElement('button', {
         key: t.id, onClick: () => setTab(t.id),
