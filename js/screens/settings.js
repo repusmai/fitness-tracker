@@ -156,7 +156,7 @@ function SettingsTab({ data, onRestore, isOnline, preferredUnit, onSetPreferredU
       React.createElement('div', { style: { fontSize: 13, fontWeight: 600, color: "var(--accent)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 } }, "Preferences"),
       React.createElement('div', { style: { fontSize: 26, fontWeight: 900, color: "var(--text)", letterSpacing: "-0.02em" } }, "Settings")
     ),
-    React.createElement('div', { 'data-main-scroll': true, style: { overflowY: "auto", overflowX: "hidden", flex: 1, padding: "16px", display: "flex", flexDirection: "column", gap: 14, WebkitOverflowScrolling: "touch" } },
+    React.createElement('div', { 'data-main-scroll': true, style: { overflowY: "auto", overflowX: "hidden", flex: 1, padding: "16px", paddingBottom: "76px", display: "flex", flexDirection: "column", gap: 14, WebkitOverflowScrolling: "touch" } },
 
       // ── Google Drive ──────────────────────────────────────────────────────
       React.createElement(CollapsibleCard, { id: "drive", label: "Google Drive Backup" },

@@ -22,7 +22,7 @@ function StatsTab({ workouts, exercises, bodyweight, onSetBW, preferredUnit, onS
       )
     ),
 
-    React.createElement('div', { 'data-main-scroll': true, style: { overflowY: "auto", overflowX: "hidden", flex: 1, padding: "16px", display: "flex", flexDirection: "column", gap: 14, WebkitOverflowScrolling: "touch" } },
+    React.createElement('div', { 'data-main-scroll': true, style: { overflowY: "auto", overflowX: "hidden", flex: 1, padding: "16px", paddingBottom: "76px", display: "flex", flexDirection: "column", gap: 14, WebkitOverflowScrolling: "touch" } },
       // Bodyweight card
       React.createElement('div', { style: { background: "var(--surface)", borderRadius: 16, padding: "14px", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" } },
         React.createElement('div', { style: { display: "flex", alignItems: "center", gap: 10 } },
