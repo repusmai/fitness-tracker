@@ -1,5 +1,4 @@
 // ── App — Root Component ──────────────────────────────────────────────────────
-// Wires together all screens and manages top-level state.
 // APP_VERSION is declared in index.html so pwa.js can also read it.
 
 function App() {
@@ -12,6 +11,7 @@ function App() {
   const [isOnline,     setIsOnline]     = React.useState(() => navigator.onLine);
   const [updateReady,  setUpdateReady]  = React.useState(() => window._swUpdateReady || false);
   const [dataRestored, setDataRestored] = React.useState(false);
+  const [navHidden,    setNavHidden]    = React.useState(false);
 
   const { workouts, exercises, bodyweight, templates } = data;
 
@@ -41,17 +41,14 @@ function App() {
 
   // ── Auto-restore from IndexedDB if localStorage is empty ─────────────────
   React.useEffect(() => {
-    const hasData = !!localStorage.getItem(STORAGE_KEY);
-    if (!hasData && !dataRestored) {
-      loadLatestSnapshot().then(snapshot => {
-        if (snapshot?.workouts?.length > 0) {
-          setData(snapshot);
-          saveData(snapshot);
-          setDataRestored(true);
-          console.log('[FitnessTracker] Auto-restored from IndexedDB snapshot');
-        }
-      });
-    }
+    if (localStorage.getItem(STORAGE_KEY) || dataRestored) return;
+    loadLatestSnapshot().then(snapshot => {
+      if (snapshot?.workouts?.length > 0) {
+        setData(snapshot);
+        saveData(snapshot);
+        setDataRestored(true);
+      }
+    });
   }, []);
 
   // ── Online / offline listener ─────────────────────────────────────────────
@@ -63,7 +60,32 @@ function App() {
     return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
   }, []);
 
-  // ── Data update helpers ───────────────────────────────────────────────────
+  // ── Bottom nav hide/show on scroll ───────────────────────────────────────
+  const navLastY   = React.useRef(0);
+  const navCleanup = React.useRef(null);
+
+  React.useEffect(() => {
+    if (screen) { setNavHidden(false); return; }
+    const timer = setTimeout(() => {
+      const el = document.querySelector('[data-main-scroll]');
+      if (!el) return;
+      navLastY.current = el.scrollTop;
+      const onScroll = () => {
+        const y  = el.scrollTop;
+        const dy = y - navLastY.current;
+        if (Math.abs(dy) < 6) return;
+        const nearBottom = el.scrollHeight - y - el.clientHeight < 80;
+        if (nearBottom) { setNavHidden(false); navLastY.current = y; return; }
+        setNavHidden(dy > 0 && y > 60);
+        navLastY.current = y;
+      };
+      el.addEventListener('scroll', onScroll, { passive: true });
+      navCleanup.current = () => el.removeEventListener('scroll', onScroll);
+    }, 50);
+    return () => { clearTimeout(timer); navCleanup.current?.(); };
+  }, [tab, screen]);
+
+  // ── Data helpers ──────────────────────────────────────────────────────────
   const setW   = fn => setData(prev => { const next = { ...prev, workouts:   typeof fn === "function" ? fn(prev.workouts)   : fn }; saveData(next); return next; });
   const setEx  = fn => setData(prev => { const next = { ...prev, exercises:  typeof fn === "function" ? fn(prev.exercises)  : fn }; saveData(next); return next; });
   const setBW  = bw => setData(prev => { const next = { ...prev, bodyweight: bw };                                                   saveData(next); return next; });
@@ -78,86 +100,43 @@ function App() {
     });
     setScreen(null); setActive(null); setTab("log");
   }
-  function deleteWorkout(id) { setW(prev => prev.filter(w => w.id !== id)); setScreen(null); setActive(null); }
+  function deleteWorkout(id)           { setW(prev => prev.filter(w => w.id !== id)); setScreen(null); setActive(null); }
   function saveTemplate(workout, name) { setTpl(prev => [...prev, workoutToTemplate(workout, name)]); }
-  function deleteTemplate(id) { setTpl(prev => prev.filter(t => t.id !== id)); }
+  function deleteTemplate(id)          { setTpl(prev => prev.filter(t => t.id !== id)); }
   function startFromTemplate(tpl) {
     const w = templateToWorkout(tpl, data.preferredUnit || "kg");
     window._pendingTemplateWorkout = w;
     setActive(w);
     setScreen("new-from-template");
   }
-
-  // ── SW update ─────────────────────────────────────────────────────────────
   function applyUpdate() {
     const reg = window._swReg;
-    if (reg?.waiting) { reg.waiting.postMessage({ type: "SKIP_WAITING" }); }
-    else { window.location.reload(); }
+    if (reg?.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" });
+    else window.location.reload();
   }
 
-  // ── Bottom nav hide/show on scroll ───────────────────────────────────────
-  const [navHidden, setNavHidden] = React.useState(false);
-  const navLastY  = React.useRef(0);
-  const navScrollEl = React.useRef(null);
-
-  // Re-attach listener whenever tab or screen changes (different scroll containers)
-  React.useEffect(() => {
-    if (screen) { setNavHidden(false); return; }
-    // Small delay so the new screen's DOM is mounted
-    const timer = setTimeout(() => {
-      // Find the scrollable child of the main content area
-      const main = document.querySelector('[data-main-scroll]');
-      if (!main) return;
-      navScrollEl.current = main;
-      navLastY.current = main.scrollTop;
-
-      const onScroll = () => {
-        const y = main.scrollTop;
-        const dy = y - navLastY.current;
-        if (Math.abs(dy) < 6) return;
-        const nearBottom = main.scrollHeight - y - main.clientHeight < 80;
-        if (nearBottom) { setNavHidden(false); navLastY.current = y; return; }
-        setNavHidden(dy > 0 && y > 60);
-        navLastY.current = y;
-      };
-      main.addEventListener('scroll', onScroll, { passive: true });
-      navScrollEl._cleanup = () => main.removeEventListener('scroll', onScroll);
-    }, 50);
-    return () => {
-      clearTimeout(timer);
-      navScrollEl._cleanup?.();
-    };
-  }, [tab, screen]);
-  const activeWorkout = active || (screen === "new-from-template" ? window._pendingTemplateWorkout : null);
-
   // ── Screen routing ────────────────────────────────────────────────────────
+  const activeWorkout = active || (screen === "new-from-template" ? window._pendingTemplateWorkout : null);
+  const unit = data.preferredUnit || "kg";
+
   const currentScreen =
     screen === "quicklog"
-      ? React.createElement(QuickLog, {
-          exercises, workouts, templates: templates || [],
-          preferredUnit: data.preferredUnit || "kg",
-          onSave: w => { setW(prev => { const e = prev.find(x => x.id === w.id); return e ? prev.map(x => x.id === w.id ? w : x) : [...prev, w]; }); setScreen(null); },
-          onCancel: () => setScreen(null),
-          onCreateExercise: ex => setEx(prev => [...prev, ex]),
-        })
+      ? React.createElement(QuickLog, { exercises, workouts, templates: templates || [], preferredUnit: unit, onSave: w => { setW(prev => { const e = prev.find(x => x.id === w.id); return e ? prev.map(x => x.id === w.id ? w : x) : [...prev, w]; }); setScreen(null); }, onCancel: () => setScreen(null), onCreateExercise: ex => setEx(prev => [...prev, ex]) })
     : screen === "new"
-      ? React.createElement(Editor, { exercises, workouts, preferredUnit: data.preferredUnit || "kg", onSave: saveWorkout, onCancel: () => setScreen(null) })
+      ? React.createElement(Editor, { exercises, workouts, preferredUnit: unit, onSave: saveWorkout, onCancel: () => setScreen(null) })
     : screen === "new-from-template" && activeWorkout
-      ? React.createElement(Editor, { workout: activeWorkout, exercises, workouts, preferredUnit: data.preferredUnit || "kg", onSave: saveWorkout, onCancel: () => { setScreen(null); setActive(null); window._pendingTemplateWorkout = null; } })
+      ? React.createElement(Editor, { workout: activeWorkout, exercises, workouts, preferredUnit: unit, onSave: saveWorkout, onCancel: () => { setScreen(null); setActive(null); window._pendingTemplateWorkout = null; } })
     : screen === "edit"
-      ? React.createElement(Editor, { workout: active, exercises, workouts, preferredUnit: data.preferredUnit || "kg", onSave: saveWorkout, onCancel: () => setScreen("detail") })
+      ? React.createElement(Editor, { workout: active, exercises, workouts, preferredUnit: unit, onSave: saveWorkout, onCancel: () => setScreen("detail") })
     : screen === "detail"
       ? React.createElement(Detail, { workout: active, exercises, onBack: () => { setScreen(null); setActive(null); }, onEdit: () => setScreen("edit"), onDelete: () => deleteWorkout(active.id), onSaveTemplate: saveTemplate, existingTemplate: (templates || []).some(t => t.createdFrom === active.id) })
     : null;
 
   const mainContent = currentScreen || (
-    tab === "log"
-      ? React.createElement(Log, { workouts, exercises, templates: templates || [], onNew: () => setScreen("new"), onQuickLog: () => setScreen("quicklog"), onView: w => { setActive(w); setScreen("detail"); }, onNewFromTemplate: startFromTemplate, onDeleteTemplate: deleteTemplate, showInstall: showInstall && !isInstalled && isOnline, onDismissInstall: () => setShowInstall(false), isOnline, updateReady, onApplyUpdate: applyUpdate })
-    : tab === "stats"
-      ? React.createElement(StatsTab, { workouts, exercises, bodyweight: bodyweight || 80, onSetBW: setBW, preferredUnit: data.preferredUnit || "kg", onSetPreferredUnit: setPU })
-    : tab === "library"
-      ? React.createElement(Library, { exercises, setExercises: setEx })
-      : React.createElement(SettingsTab, { data, onRestore: d => { setData(d); saveData(d); }, isOnline, preferredUnit: data.preferredUnit || "kg", onSetPreferredUnit: setPU, appVersion: APP_VERSION })
+    tab === "log"      ? React.createElement(Log,        { workouts, exercises, templates: templates || [], onNew: () => setScreen("new"), onQuickLog: () => setScreen("quicklog"), onView: w => { setActive(w); setScreen("detail"); }, onNewFromTemplate: startFromTemplate, onDeleteTemplate: deleteTemplate, showInstall: showInstall && !isInstalled && isOnline, onDismissInstall: () => setShowInstall(false), isOnline, updateReady, onApplyUpdate: applyUpdate })
+    : tab === "stats"    ? React.createElement(StatsTab,   { workouts, exercises, bodyweight: bodyweight || 80, onSetBW: setBW, preferredUnit: unit, onSetPreferredUnit: setPU })
+    : tab === "library"  ? React.createElement(Library,    { exercises, setExercises: setEx })
+    : React.createElement(SettingsTab, { data, onRestore: d => { setData(d); saveData(d); }, isOnline, preferredUnit: unit, onSetPreferredUnit: setPU, appVersion: APP_VERSION })
   );
 
   const TABS = [
@@ -170,22 +149,17 @@ function App() {
   return React.createElement('div', {
     style: { fontFamily: "'DM Sans','Segoe UI',sans-serif", background: "var(--bg)", color: "var(--text)", height: "100dvh", display: "flex", flexDirection: "column", maxWidth: 430, margin: "0 auto", overflow: "hidden" }
   },
-    // Offline banner
     !isOnline && React.createElement('div', { style: { background: "#1c1410", borderBottom: "1px solid #92400e", padding: "8px 16px", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 } },
-      React.createElement('svg', { width:"14",height:"14",viewBox:"0 0 24 24",fill:"none",stroke:"#f59e0b",strokeWidth:"2.5",strokeLinecap:"round",strokeLinejoin:"round" }, React.createElement('line', { x1:"1",y1:"1",x2:"23",y2:"23" }), React.createElement('path', { d:"M16.72 11.06A10.94 10.94 0 0119 12.55M5 12.55a10.94 10.94 0 015.17-2.39M10.71 5.05A16 16 0 0122.56 9M1.42 9a15.91 15.91 0 014.7-2.88M8.53 16.11a6 6 0 016.95 0M12 20h.01" })),
+      React.createElement('svg', { width:"14",height:"14",viewBox:"0 0 24 24",fill:"none",stroke:"#f59e0b",strokeWidth:"2.5",strokeLinecap:"round",strokeLinejoin:"round" },
+        React.createElement('line', { x1:"1",y1:"1",x2:"23",y2:"23" }),
+        React.createElement('path', { d:"M16.72 11.06A10.94 10.94 0 0119 12.55M5 12.55a10.94 10.94 0 015.17-2.39M10.71 5.05A16 16 0 0122.56 9M1.42 9a15.91 15.91 0 014.7-2.88M8.53 16.11a6 6 0 016.95 0M12 20h.01" })),
       React.createElement('span', { style: { fontSize: 12, fontWeight: 600, color: "#f59e0b" } }, "Offline — all core features available")
     ),
-
-    // Data restored banner
     dataRestored && React.createElement('div', { style: { background: "#052e16", borderBottom: "1px solid #16a34a", padding: "8px 16px", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 } },
       React.createElement(Icon, { name: "shield", size: 14, color: "#22c55e" }),
       React.createElement('span', { style: { fontSize: 12, fontWeight: 600, color: "#22c55e" } }, "Data auto-restored from local backup ✓")
     ),
-
-    // Main content
-    React.createElement('div', { style: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column"} }, mainContent),
-
-    // Bottom nav bar (hidden when a full-screen modal is open)
+    React.createElement('div', { style: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" } }, mainContent),
     !screen && React.createElement('div', {
       style: { position: "fixed", bottom: 0, left: "50%", transform: navHidden ? "translate(-50%, 100%)" : "translate(-50%, 0)", width: "100%", maxWidth: 430, display: "flex", background: "var(--surface)", borderTop: "1px solid var(--border)", padding: `8px 0 max(12px, env(safe-area-inset-bottom))`, transition: "transform 0.25s ease", zIndex: 10 }
     },
