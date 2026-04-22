@@ -74,7 +74,7 @@ function Library({ exercises, setExercises }) {
       )
     ),
 
-    React.createElement('div', { ref: scrollRef, 'data-main-scroll': true, style: { overflowY: "auto", flex: 1, paddingTop: headerHidden ? 0 : headerH, paddingBottom: "76px", transition: "padding-top 0.25s ease" } },
+    React.createElement('div', { ref: scrollRef, 'data-main-scroll': true, style: { overflowY: "auto", flex: 1, paddingTop: headerH, paddingBottom: "76px" } },
       editMode && React.createElement('div', { style: { margin: "12px 16px 4px", background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.18)", borderRadius: 12, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 } },
         React.createElement('span', { style: { fontSize: 12, color: "#fca5a5", lineHeight: 1.4 } }, "Tap the trash icon to remove any exercise."),
         hiddenCount > 0 && React.createElement('button', { onClick: restoreDefaults, style: { flexShrink: 0, background: "rgba(239,68,68,0.18)", border: "none", borderRadius: 8, padding: "5px 10px", color: "#f87171", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" } }, "Restore ", hiddenCount, " default", hiddenCount > 1 ? "s" : "")

@@ -48,7 +48,7 @@ function Log({ workouts, exercises, templates, onNew, onQuickLog, onView, onNewF
     ),
 
     // Scrollable content
-    React.createElement('div', { ref: scrollRef, 'data-main-scroll': true, style: { flex: 1, overflowY: "auto", paddingTop: headerHidden ? 0 : headerH, paddingBottom: "76px", transition: "padding-top 0.25s ease" } },
+    React.createElement('div', { ref: scrollRef, 'data-main-scroll': true, style: { flex: 1, overflowY: "auto", paddingTop: headerH, paddingBottom: "76px" } },
       // History section
       section === "log" && React.createElement(React.Fragment, null,
         React.createElement('div', { style: { padding: "14px 16px 0" } },

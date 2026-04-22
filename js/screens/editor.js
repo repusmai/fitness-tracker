@@ -52,8 +52,8 @@ function Editor({ workout, exercises, workouts, onSave, onCancel, preferredUnit 
       )
     ),
 
-    // Scrollable content
-    React.createElement('div', { ref: scrollRef, style: { overflowY: "auto", flex: 1, paddingTop: headerHidden ? 0 : headerH, transition: "padding-top 0.25s ease", paddingLeft: 16, paddingRight: 16, paddingBottom: 100, display: "flex", flexDirection: "column", gap: 14 } },
+    // Scrollable content — paddingTop fixed at headerH, never changes on hide/show
+    React.createElement('div', { ref: scrollRef, style: { overflowY: "auto", flex: 1, paddingTop: headerH, paddingLeft: 16, paddingRight: 16, paddingBottom: 100, display: "flex", flexDirection: "column", gap: 14 } },
       React.createElement(Inp, { label: "Workout Name", placeholder: "e.g. Push Day, Leg Day...", value: w.name, onChange: e => setW(p => ({ ...p, name: e.target.value })) }),
       React.createElement(DateInput, { value: w.date, onChange: d => setW(p => ({ ...p, date: d })), style: { background: "var(--surface2)", border: "1px solid var(--border2)", borderRadius: 10, color: "var(--text)", padding: "10px 12px", fontSize: 14, outline: "none", width: "100%", fontFamily: "inherit" } }),
       allMuscles.length > 0 && React.createElement('div', null,

@@ -107,8 +107,9 @@ function QuickLog({ exercises, templates, workouts, onSave, onCancel, onCreateEx
       )
     ),
 
-    // Content
-    React.createElement('div', { ref: scrollRef, style: { flex: 1, overflowY: "auto", paddingTop: headerHidden ? 0 : headerH, transition: "padding-top 0.25s ease", paddingLeft: 14, paddingRight: 16, paddingBottom: 120, display: "flex", flexDirection: "column", gap: 12 } },
+    // Content — paddingTop is fixed at headerH so scrollHeight never changes
+    // when the header hides, eliminating the jitter feedback loop.
+    React.createElement('div', { ref: scrollRef, 'data-main-scroll': true, style: { flex: 1, overflowY: "auto", paddingTop: headerH, paddingLeft: 14, paddingRight: 16, paddingBottom: 120, display: "flex", flexDirection: "column", gap: 12 } },
       !workout?.entries?.length && React.createElement('div', { style: { textAlign: "center", padding: "50px 20px", color: "var(--border2)", fontSize: 14 } }, "No exercises yet — tap below to add one"),
       (workout?.entries || []).map((entry, i) => React.createElement(WECard, { key: entry._key || i, entry, exercises, workouts, onChange: e => updateEntry(i, e), onRemove: () => removeEntry(i), onMoveUp: () => moveEntry(i, -1), onMoveDown: () => moveEntry(i, 1), isFirst: i === 0, isLast: i === (workout.entries.length - 1) })),
       React.createElement('button', { onClick: () => setShowPicker(true), style: { width: "100%", padding: "14px", background: "var(--surface)", border: "2px dashed #1e293b", borderRadius: 16, cursor: "pointer", color: "var(--accent)", fontSize: 14, fontWeight: 700, fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 } },
