@@ -13,10 +13,10 @@ function LineChart({ points, color = "var(--accent)", height = 120, showDots = t
     const W    = wrapRef.current ? wrapRef.current.clientWidth : 320;
     const H    = height;
 
-    // Skip redraw if dimensions haven't actually changed — prevents the
-    // ResizeObserver ↔ canvas-resize feedback loop that causes the Stats
-    // page to flicker when scrolled to the bottom.
-    if (W === lastSize.current.w && H === lastSize.current.h) return;
+    // Skip redraw only if dimensions are unchanged AND non-zero — ensures
+    // the chart always draws once it gets a real width from the layout.
+    if (W > 0 && W === lastSize.current.w && H === lastSize.current.h) return;
+    if (W === 0) return; // not laid out yet, wait for ResizeObserver
     lastSize.current = { w: W, h: H };
 
     canvas.width        = W * dpr;
@@ -123,11 +123,22 @@ function LineChart({ points, color = "var(--accent)", height = 120, showDots = t
   }
 
   React.useEffect(() => {
-    lastSize.current = { w: 0, h: 0 }; // reset so first draw always runs
-    draw();
+    lastSize.current = { w: 0, h: 0 };
+    let attempts = 0;
+    // Retry draw until the wrapper has a non-zero width (layout may not be
+    // complete on the first few frames, especially inside scrollable containers)
+    function tryDraw() {
+      const w = wrapRef.current ? wrapRef.current.clientWidth : 0;
+      if (w > 0) {
+        draw();
+      } else if (attempts < 10) {
+        attempts++;
+        requestAnimationFrame(tryDraw);
+      }
+    }
+    requestAnimationFrame(tryDraw);
     if (!wrapRef.current) return;
     const ro = new ResizeObserver(() => {
-      // Debounce via rAF so rapid scroll-driven resize events are collapsed
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = requestAnimationFrame(() => draw());
     });
@@ -141,7 +152,7 @@ function LineChart({ points, color = "var(--accent)", height = 120, showDots = t
     }, "No data yet — log more workouts");
   }
 
-  return React.createElement('div', { ref: wrapRef, style: { width: "100%" } },
+  return React.createElement('div', { ref: wrapRef, style: { width: "100%", minHeight: height } },
     React.createElement('canvas', { ref: canvasRef, style: { display: "block" } })
   );
 }
@@ -347,7 +358,7 @@ function StrengthTrendPanel({ workouts, exercises, displayUnit }) {
 
   const primaryColor = selectedEx ? getColorForMuscle(selectedEx.muscles?.[0] || "") : "var(--accent)";
 
-  return React.createElement('div', { style: { background: "var(--surface)", borderRadius: 16, border: "1px solid var(--border)", overflow: "hidden" } },
+  return React.createElement('div', { style: { background: "var(--surface)", borderRadius: 16, border: "1px solid var(--border)" } },
     React.createElement('div', { style: { padding: "14px 14px 10px" } },
       React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 } }, "Strength Trends"),
       React.createElement('div', { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 } },
