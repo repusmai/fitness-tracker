@@ -79,8 +79,20 @@ const THEMES = {
     grad: "linear-gradient(135deg,#94a3b8,#64748b)",
     muscleColors: ["#d4d4d4","#a3a3a3","#e5e5e5","#c4c4c4","#b4b4b4","#e0e0e0","#d0d0d0","#c0c0c0"],
   },
-  monolight: {
-    name: "Mono Light", emoji: "🔲",
+  monocolor: {
+    name: "Mono Color", emoji: "🎨",
+    bg: "#0a0a0a", surface: "#111111", surface2: "#1c1c1c",
+    border: "#272727", border2: "#333333",
+    muted: "#555555", muted2: "#6a6a6a", subtle: "#909090",
+    text: "#f2f2f2", text2: "#d4d4d4",
+    accent: "#6366f1", accent2: "#8b5cf6",
+    accentSoft: "rgba(99,102,241,0.12)", accentGlow: "rgba(99,102,241,0.25)",
+    accentLight: "#a5b4fc", accentMid: "#818cf8",
+    grad: "linear-gradient(135deg,#6366f1,#8b5cf6)",
+    muscleColors: ["#ef4444","#3b82f6","#a855f7","#f97316","#22c55e","#eab308","#ec4899","#06b6d4"],
+  },
+  light: {
+    name: "Light", emoji: "🔲",
     bg: "#f5f5f5", surface: "#ffffff", surface2: "#ececec",
     border: "#e0e0e0", border2: "#d0d0d0",
     muted: "#9a9a9a", muted2: "#7a7a7a", subtle: "#555555",
