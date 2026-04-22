@@ -73,8 +73,8 @@ function SettingsTab({ data, onRestore, isOnline, preferredUnit, onSetPreferredU
     );
   }
 
-  function Row({ icon, title, subtitle, right, onClick, danger, iconBg }) {
-    return React.createElement('button', { onClick, disabled: !onClick, style: { width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: "none", border: "none", cursor: onClick ? "pointer" : "default", fontFamily: "inherit", textAlign: "left", borderBottom: "1px solid var(--border)" } },
+  function Row({ icon, title, subtitle, right, onClick, danger, iconBg, first }) {
+    return React.createElement('button', { onClick, disabled: !onClick, style: { width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: "none", border: "none", cursor: onClick ? "pointer" : "default", fontFamily: "inherit", textAlign: "left", borderTop: first ? "none" : "1px solid var(--border)" } },
       React.createElement('div', { style: { width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: iconBg || (danger ? "rgba(239,68,68,0.12)" : "var(--surface2)"), display: "flex", alignItems: "center", justifyContent: "center" } },
         React.createElement(Icon, { name: icon, size: 18, color: danger ? "#ef4444" : "var(--subtle)" })),
       React.createElement('div', { style: { flex: 1, minWidth: 0 } },
@@ -177,7 +177,7 @@ function SettingsTab({ data, onRestore, isOnline, preferredUnit, onSetPreferredU
             }, clientIdSaved ? "Saved ✓" : "Save")
           )
         ),
-        React.createElement('div', { style: { padding: "14px 16px", borderBottom: "1px solid var(--border)" } },
+        React.createElement('div', { style: { padding: "14px 16px" } },
           React.createElement('div', { style: { display: "flex", alignItems: "center", gap: 12, marginBottom: driveStatus ? "10px" : 0 } },
             React.createElement('div', { style: { width: 36, height: 36, borderRadius: 10, background: "rgba(26,115,232,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, React.createElement(Icon, { name: "cloud", size: 18, color: "#4285f4" })),
             React.createElement('div', { style: { flex: 1 } },
@@ -200,7 +200,7 @@ function SettingsTab({ data, onRestore, isOnline, preferredUnit, onSetPreferredU
             )
           )
         ),
-        React.createElement('div', { style: { padding: "14px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 } },
+        React.createElement('div', { style: { padding: "14px 16px", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 } },
           React.createElement('div', { style: { width: 36, height: 36, borderRadius: 10, background: "rgba(26,115,232,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, React.createElement(Icon, { name: "download", size: 18, color: "#4285f4" })),
           React.createElement('div', { style: { flex: 1 } }, React.createElement('div', { style: { fontSize: 14, fontWeight: 600, color: "var(--text)" } }, "Restore from Drive"), React.createElement('div', { style: { fontSize: 12, color: "var(--muted)", marginTop: 1 } }, "Load your latest Drive backup")),
           React.createElement(Btn, { variant: "secondary", onClick: handleDriveRestore, style: { padding: "7px 14px", fontSize: 12, flexShrink: 0 }, disabled: driveStatus === "restoring" },
@@ -208,7 +208,7 @@ function SettingsTab({ data, onRestore, isOnline, preferredUnit, onSetPreferredU
               ? React.createElement(React.Fragment, null, React.createElement('div', { style: { width: 12, height: 12, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "var(--subtle)", borderRadius: "50%", animation: "spin 0.8s linear infinite" } }), " Loading…")
               : "Restore")
         ),
-        React.createElement('div', { style: { padding: "14px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 } },
+        React.createElement('div', { style: { padding: "14px 16px", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 } },
           React.createElement('div', { style: { width: 36, height: 36, borderRadius: 10, background: "rgba(26,115,232,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, React.createElement(Icon, { name: "refresh", size: 18, color: "#4285f4" })),
           React.createElement('div', { style: { flex: 1 } }, React.createElement('div', { style: { fontSize: 14, fontWeight: 600, color: "var(--text)" } }, "Auto-backup daily"), React.createElement('div', { style: { fontSize: 12, color: "var(--muted)", marginTop: 1 } }, "Silently backs up on app open if >24h since last backup")),
           React.createElement('div', { onClick: () => toggleAutoBackup(!autoBackup), style: { width: 44, height: 24, borderRadius: 12, background: autoBackup ? "var(--accent)" : "var(--border2)", cursor: "pointer", position: "relative", transition: "background 0.2s", flexShrink: 0 } },
@@ -219,13 +219,13 @@ function SettingsTab({ data, onRestore, isOnline, preferredUnit, onSetPreferredU
       // ── Local Backup ──────────────────────────────────────────────────────
       React.createElement(CollapsibleCard, { id: "localbackup", label: "Local Backup" },
         React.createElement(Row, {
-          icon: "download", title: "Export backup",
+          first: true, icon: "download", title: "Export backup",
           subtitle: `Downloads a .json file — ${data?.workouts?.length || 0} workouts, ${data?.exercises?.length || 0} exercises`,
           onClick: handleExport,
           right: React.createElement('div', { style: { background: "var(--grad)", borderRadius: 8, padding: "6px 12px" } }, React.createElement('span', { style: { fontSize: 12, fontWeight: 700, color: "#fff" } }, "Export")),
         }),
-        React.createElement('div', { style: { borderBottom: "1px solid var(--border)" } },
-          React.createElement('button', { onClick: () => fileRef.current?.click(), style: { width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" } },
+        React.createElement('div', null,
+          React.createElement('button', { onClick: () => fileRef.current?.click(), style: { width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left", borderTop: "1px solid var(--border)" } },
             React.createElement('div', { style: { width: 36, height: 36, borderRadius: 10, background: "var(--surface2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, React.createElement(Icon, { name: "upload", size: 18, color: "var(--subtle)" })),
             React.createElement('div', { style: { flex: 1 } },
               React.createElement('div', { style: { fontSize: 14, fontWeight: 600, color: "var(--text)" } }, "Restore from file"),
@@ -247,7 +247,7 @@ function SettingsTab({ data, onRestore, isOnline, preferredUnit, onSetPreferredU
 
       // ── Local Snapshots ───────────────────────────────────────────────────
       React.createElement(CollapsibleCard, { id: "snapshots", label: "Local Snapshots" },
-        React.createElement('div', { style: { borderBottom: "1px solid var(--border)", padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 } },
+        React.createElement('div', { style: { padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 } },
           React.createElement('div', { style: { width: 36, height: 36, borderRadius: 10, background: "var(--accent-soft)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, React.createElement(Icon, { name: "history", size: 18, color: "var(--accent-mid)" })),
           React.createElement('div', { style: { flex: 1 } },
             React.createElement('div', { style: { fontSize: 14, fontWeight: 600, color: "var(--text)" } }, "Local Snapshots"),
@@ -283,7 +283,7 @@ function SettingsTab({ data, onRestore, isOnline, preferredUnit, onSetPreferredU
 
       // ── App / Updates ─────────────────────────────────────────────────────
       React.createElement(CollapsibleCard, { id: "app", label: "App" },
-        React.createElement('div', { style: { borderBottom: "1px solid var(--border)", padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 } },
+        React.createElement('div', { style: { padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 } },
           React.createElement('div', { style: { width: 36, height: 36, borderRadius: 10, background: "var(--accent-soft)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } },
             React.createElement('svg', { width:"18",height:"18",viewBox:"0 0 24 24",fill:"none",stroke:"var(--accent-mid)",strokeWidth:"2",strokeLinecap:"round",strokeLinejoin:"round" }, React.createElement('path', { d:"M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3" }), React.createElement('line', { x1:"4",y1:"21",x2:"20",y2:"21" }))
           ),
