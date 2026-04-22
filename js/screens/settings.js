@@ -64,12 +64,12 @@ function SettingsTab({ data, onRestore, isOnline, preferredUnit, onSetPreferredU
 
   function CollapsibleCard({ id, label, children }) {
     const isCollapsed = !!collapsed[id];
-    return React.createElement('div', { style: { background: "var(--surface)", borderRadius: 16, border: "1px solid var(--border)", overflow: "hidden" } },
-      React.createElement('button', { onClick: () => toggleSection(id), style: { width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", borderBottom: isCollapsed ? "none" : "1px solid var(--border)" } },
+    return React.createElement('div', { style: { background: "var(--surface)", borderRadius: 16, border: "1px solid var(--border)" } },
+      React.createElement('button', { onClick: () => toggleSection(id), style: { width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", borderBottom: isCollapsed ? "none" : "1px solid var(--border)", borderRadius: isCollapsed ? 16 : "16px 16px 0 0" } },
         React.createElement('span', { style: { fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em" } }, label),
         React.createElement('svg', { width:"14",height:"14",viewBox:"0 0 24 24",fill:"none",stroke:"var(--subtle)",strokeWidth:"2.5",strokeLinecap:"round",strokeLinejoin:"round",style:{transform:isCollapsed?"rotate(-90deg)":"rotate(0deg)",transition:"transform 0.2s",flexShrink:0} }, React.createElement('polyline', { points:"6 9 12 15 18 9" }))
       ),
-      !isCollapsed && children
+      !isCollapsed && React.createElement('div', { style: { borderRadius: "0 0 16px 16px", overflow: "hidden" } }, children)
     );
   }
 
