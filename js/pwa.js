@@ -68,7 +68,7 @@ if ('serviceWorker' in navigator) {
   ];
 
   const swScript = `
-const CACHE = '${CACHE_VERSION}';
+const CACHE = '` + CACHE_VERSION + `';
 const ASSETS = ${JSON.stringify(ASSETS_TO_CACHE)};
 const PAGE = '${PAGE_URL}';
 
