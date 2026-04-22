@@ -79,6 +79,18 @@ const THEMES = {
     grad: "linear-gradient(135deg,#94a3b8,#64748b)",
     muscleColors: ["#d4d4d4","#a3a3a3","#e5e5e5","#c4c4c4","#b4b4b4","#e0e0e0","#d0d0d0","#c0c0c0"],
   },
+  monolight: {
+    name: "Mono Light", emoji: "🔲",
+    bg: "#f5f5f5", surface: "#ffffff", surface2: "#ececec",
+    border: "#e0e0e0", border2: "#d0d0d0",
+    muted: "#9a9a9a", muted2: "#7a7a7a", subtle: "#555555",
+    text: "#111111", text2: "#333333",
+    accent: "#222222", accent2: "#444444",
+    accentSoft: "rgba(0,0,0,0.06)", accentGlow: "rgba(0,0,0,0.12)",
+    accentLight: "#555555", accentMid: "#333333",
+    grad: "linear-gradient(135deg,#222222,#444444)",
+    muscleColors: ["#ef4444","#3b82f6","#a855f7","#f97316","#22c55e","#eab308","#ec4899","#06b6d4"],
+  },
 };
 
 // Names that map to each index in muscleColors
