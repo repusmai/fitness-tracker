@@ -4,8 +4,6 @@ const { useState, useEffect, useRef } = React;
 
 // ── Unit Conversion ───────────────────────────────────────────────────────────
 
-const KG_TO_LBS = 2.20462;
-const LBS_TO_KG = 1 / KG_TO_LBS;
 
 function convertWeight(value, fromUnit, toUnit) {
   if (fromUnit === toUnit) return value;
