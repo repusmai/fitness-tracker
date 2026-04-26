@@ -1,7 +1,7 @@
 // ── Editor Screen ─────────────────────────────────────────────────────────────
 // Full workout editor — used for both creating new workouts and editing existing ones.
 
-function Editor({ workout, exercises, workouts, onSave, onCancel, preferredUnit }) {
+function Editor({ workout, exercises, workouts, onSave, onCancel, preferredUnit, isTemplate }) {
   const [w, setW] = React.useState(() => {
     const base = workout || { id: Date.now().toString(), date: today(), name: "", entries: [], notes: "", unit: preferredUnit || "kg" };
     return { ...base, unit: base.unit || preferredUnit || "kg", entries: base.entries.map((e, i) => ({ _key: e._key || `${e.exerciseId}_${i}_init`, ...e, unit: e.unit || base.unit || "kg" })) };
@@ -45,7 +45,7 @@ function Editor({ workout, exercises, workouts, onSave, onCancel, preferredUnit 
     React.createElement('div', { ref: headerRef, style: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 2, transform: headerHidden ? "translateY(-100%)" : "translateY(0)", transition: "transform 0.25s ease", willChange: "transform", background: "var(--bg)" } },
       React.createElement('div', { style: { padding: "16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 } },
         React.createElement('button', { onClick: onCancel, style: { background: "none", border: "none", cursor: "pointer", color: "var(--subtle)", padding: 4 } }, React.createElement(Icon, { name: "back", size: 22 })),
-        React.createElement('span', { style: { fontWeight: 800, fontSize: 18, color: "var(--text)", flex: 1 } }, workout ? "Edit Workout" : "New Workout"),
+        React.createElement('span', { style: { fontWeight: 800, fontSize: 18, color: "var(--text)", flex: 1 } }, isTemplate ? "Edit Template" : workout ? "Edit Workout" : "New Workout"),
         React.createElement(UnitToggle, { unit: workoutUnit, onChange: setWorkoutUnit }),
         React.createElement(Btn, { variant: isValid ? "primary" : "secondary", onClick: () => isValid && onSave(w), style: { opacity: isValid ? 1 : 0.4, padding: "8px 16px", fontSize: 13 } },
           React.createElement(Icon, { name: "check", size: 15 }), " Save")

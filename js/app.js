@@ -103,6 +103,11 @@ function App() {
   function deleteWorkout(id)           { setW(prev => prev.filter(w => w.id !== id)); setScreen(null); setActive(null); }
   function saveTemplate(workout, name) { setTpl(prev => [...prev, workoutToTemplate(workout, name)]); }
   function deleteTemplate(id)          { setTpl(prev => prev.filter(t => t.id !== id)); }
+  function editTemplate(tpl)           { setActive(tpl); setScreen("edit-template"); }
+  function saveTemplateEdit(edited) {
+    setTpl(prev => prev.map(t => t.id === edited.id ? { ...t, name: edited.name, unit: edited.unit, entries: edited.entries } : t));
+    setScreen(null); setActive(null);
+  }
   function startFromTemplate(tpl) {
     const w = templateToWorkout(tpl, data.preferredUnit || "kg");
     window._pendingTemplateWorkout = w;
@@ -126,6 +131,8 @@ function App() {
       ? React.createElement(Editor, { exercises, workouts, preferredUnit: unit, onSave: saveWorkout, onCancel: () => setScreen(null) })
     : screen === "new-from-template" && activeWorkout
       ? React.createElement(Editor, { workout: activeWorkout, exercises, workouts, preferredUnit: unit, onSave: saveWorkout, onCancel: () => { setScreen(null); setActive(null); window._pendingTemplateWorkout = null; } })
+    : screen === "edit-template" && active
+      ? React.createElement(Editor, { workout: { ...active, date: active.date || today(), notes: active.notes || '' }, exercises, workouts, preferredUnit: unit, onSave: saveTemplateEdit, onCancel: () => { setScreen(null); setActive(null); }, isTemplate: true })
     : screen === "edit"
       ? React.createElement(Editor, { workout: active, exercises, workouts, preferredUnit: unit, onSave: saveWorkout, onCancel: () => setScreen("detail") })
     : screen === "detail"
@@ -133,7 +140,7 @@ function App() {
     : null;
 
   const mainContent = currentScreen || (
-    tab === "log"      ? React.createElement(Log,        { workouts, exercises, templates: templates || [], onNew: () => setScreen("new"), onQuickLog: () => setScreen("quicklog"), onView: w => { setActive(w); setScreen("detail"); }, onNewFromTemplate: startFromTemplate, onDeleteTemplate: deleteTemplate, showInstall: showInstall && !isInstalled && isOnline, onDismissInstall: () => setShowInstall(false), isOnline, updateReady, onApplyUpdate: applyUpdate })
+    tab === "log"      ? React.createElement(Log,        { workouts, exercises, templates: templates || [], onNew: () => setScreen("new"), onQuickLog: () => setScreen("quicklog"), onView: w => { setActive(w); setScreen("detail"); }, onNewFromTemplate: startFromTemplate, onDeleteTemplate: deleteTemplate, onEditTemplate: editTemplate, showInstall: showInstall && !isInstalled && isOnline, onDismissInstall: () => setShowInstall(false), isOnline, updateReady, onApplyUpdate: applyUpdate })
     : tab === "stats"    ? React.createElement(StatsTab,   { workouts, exercises, bodyweight: bodyweight || 80, onSetBW: setBW, preferredUnit: unit, onSetPreferredUnit: setPU })
     : tab === "library"  ? React.createElement(Library,    { exercises, setExercises: setEx })
     : React.createElement(SettingsTab, { data, onRestore: d => { setData(d); saveData(d); }, isOnline, preferredUnit: unit, onSetPreferredUnit: setPU, appVersion: APP_VERSION })

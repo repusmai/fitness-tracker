@@ -1,7 +1,7 @@
 // ── Log Screen ────────────────────────────────────────────────────────────────
 // The main workout history view with History and Templates sub-tabs.
 
-function Log({ workouts, exercises, templates, onNew, onQuickLog, onView, onNewFromTemplate, onDeleteTemplate, showInstall, onDismissInstall, isOnline, updateReady, onApplyUpdate }) {
+function Log({ workouts, exercises, templates, onNew, onQuickLog, onView, onNewFromTemplate, onDeleteTemplate, onEditTemplate, showInstall, onDismissInstall, isOnline, updateReady, onApplyUpdate }) {
   const [section, setSection] = React.useState("log");
   const sorted = [...workouts].sort((a, b) => b.date.localeCompare(a.date));
   const totalSets = countSetsWorkouts(workouts, exercises);
@@ -104,7 +104,10 @@ function Log({ workouts, exercises, templates, onNew, onQuickLog, onView, onNewF
                 React.createElement('div', { style: { padding: "14px 14px 10px" } },
                   React.createElement('div', { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 } },
                     React.createElement('div', { style: { fontWeight: 800, fontSize: 16, color: "var(--text)", flex: 1, marginRight: 8 } }, tpl.name),
-                    React.createElement('button', { onClick: () => onDeleteTemplate(tpl.id), style: { background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 2, flexShrink: 0 } }, React.createElement(Icon, { name: "trash", size: 15 }))
+                    React.createElement('div', { style: { display: "flex", gap: 4, flexShrink: 0 } },
+                      React.createElement('button', { onClick: () => onEditTemplate(tpl), style: { background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 2 } }, React.createElement(Icon, { name: "edit", size: 15 })),
+                      React.createElement('button', { onClick: () => onDeleteTemplate(tpl.id), style: { background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 2 } }, React.createElement(Icon, { name: "trash", size: 15 }))
+                    )
                   ),
                   React.createElement('div', { style: { marginBottom: 8 } }, React.createElement(MusclePills, { muscles, max: 5 })),
                   React.createElement('div', { style: { display: "flex", gap: 14 } },
