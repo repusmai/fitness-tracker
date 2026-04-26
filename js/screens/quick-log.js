@@ -22,7 +22,6 @@ function QuickLog({ exercises, workouts, onSave, onCancel, onCreateExercise, pre
   });
   const [showPicker,     setShowPicker]     = React.useState(false);
   const [confirmDiscard, setConfirmDiscard] = React.useState(false);
-  const [expanded,       setExpanded]       = React.useState(true);
 
   const { ref: scrollRef, hidden: headerHidden } = useScrollHide();
   const headerRef = React.useRef(null);
@@ -61,29 +60,12 @@ function QuickLog({ exercises, workouts, onSave, onCancel, onCreateExercise, pre
     .flatMap(e => e.sets.filter(s => s.weight || s.reps))
     .reduce((sum, s) => sum + (s.side === "L" || s.side === "R" ? 0.5 : 1), 0);
 
-  // ── Collapsed pill — shown when user navigates away ───────────────────────
-  if (!expanded) {
-    return React.createElement('button', {
-      onClick: () => setExpanded(true),
-      style: { position: "fixed", bottom: "calc(76px + env(safe-area-inset-bottom))", left: "50%", transform: "translateX(-50%)", zIndex: 20, background: "var(--grad)", border: "none", borderRadius: 99, padding: "10px 20px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 10, boxShadow: "0 4px 20px rgba(0,0,0,0.4)", maxWidth: 390, width: "calc(100% - 32px)" }
-    },
-      React.createElement(Icon, { name: "play", size: 16, color: "#fff" }),
-      React.createElement('span', { style: { flex: 1, fontSize: 13, fontWeight: 700, color: "#fff", textAlign: "left" } }, workout.name),
-      React.createElement('span', { style: { fontSize: 12, color: "rgba(255,255,255,0.7)" } }, fmtSets(totalSets), " sets")
-    );
-  }
-
   // ── Expanded full-screen workout session ──────────────────────────────────
   return React.createElement('div', { style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%", zIndex: 20, background: "var(--bg)", display: "flex", flexDirection: "column", maxWidth: 430, margin: "0 auto" } },
     // Sticky header
     React.createElement('div', { ref: headerRef, style: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 2, transform: headerHidden ? "translateY(-100%)" : "translateY(0)", transition: "transform 0.25s ease", background: "var(--bg)" } },
       React.createElement('div', { style: { padding: "14px 16px", borderBottom: "1px solid var(--border)" } },
         React.createElement('div', { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 12 } },
-          // Minimise button — collapses to pill, keeps workout alive
-          React.createElement('button', { onClick: () => setExpanded(false), style: { background: "none", border: "none", cursor: "pointer", color: "var(--muted2)", padding: 4 } },
-            React.createElement('svg', { width:20, height:20, viewBox:"0 0 24 24", fill:"none", stroke:"currentColor", strokeWidth:"2.5", strokeLinecap:"round", strokeLinejoin:"round" },
-              React.createElement('polyline', { points:"6 9 12 15 18 9" }))
-          ),
           React.createElement('span', { style: { flex: 1, fontSize: 12, color: "var(--muted)", fontWeight: 600 } },
             workout.entries.length, " exercise", workout.entries.length !== 1 ? "s" : "", " · ", fmtSets(totalSets), " set", totalSets !== 1 ? "s" : "", " logged"
           ),

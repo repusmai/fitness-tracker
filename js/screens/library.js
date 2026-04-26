@@ -92,7 +92,7 @@ function Library({ exercises, setExercises }) {
       ),
       Object.keys(grouped).length === 0 && !adding && React.createElement('div', { style: { color: "var(--muted2)", textAlign: "center", padding: "40px 20px", fontSize: 14 } }, "No exercises found"),
       Object.entries(grouped).map(([cat, exs]) => React.createElement('div', { key: cat },
-        React.createElement('div', { style: { padding: "12px 16px 4px", display: "flex", alignItems: "center", gap: 8, position: "sticky", top: 0, background: "var(--bg)", zIndex: 1 } },
+        React.createElement('div', { style: { padding: "12px 16px 4px", display: "flex", alignItems: "center", gap: 8, position: "sticky", top: headerHidden ? 0 : headerH, background: "var(--bg)", zIndex: 1, transition: "top 0.25s ease" } },
           React.createElement('div', { style: { width: 8, height: 8, borderRadius: "50%", background: getColorForCategory(cat) } }),
           React.createElement('span', { style: { fontSize: 12, fontWeight: 700, color: getColorForCategory(cat), textTransform: "uppercase", letterSpacing: "0.08em" } }, cat),
           React.createElement('span', { style: { fontSize: 11, color: "var(--muted)" } }, "(", exs.length, ")")
