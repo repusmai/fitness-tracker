@@ -2,16 +2,18 @@
 // APP_VERSION is declared in index.html so pwa.js can also read it.
 
 function App() {
-  const [data,         setData]         = React.useState(() => loadData());
-  const [tab,          setTab]          = React.useState("log");
-  const [screen,       setScreen]       = React.useState(null);
-  const [active,       setActive]       = React.useState(null);
-  const [showInstall,  setShowInstall]  = React.useState(true);
-  const [isInstalled,  setIsInstalled]  = React.useState(false);
-  const [isOnline,     setIsOnline]     = React.useState(() => navigator.onLine);
-  const [updateReady,  setUpdateReady]  = React.useState(() => window._swUpdateReady || false);
-  const [dataRestored, setDataRestored] = React.useState(false);
-  const [navHidden,    setNavHidden]    = React.useState(false);
+  const [data,          setData]         = React.useState(() => loadData());
+  const [tab,           setTab]          = React.useState("log");
+  const [screen,        setScreen]       = React.useState(null); // detail | edit | edit-template
+  const [active,        setActive]       = React.useState(null);
+  const [showInstall,   setShowInstall]  = React.useState(true);
+  const [isInstalled,   setIsInstalled]  = React.useState(false);
+  const [isOnline,      setIsOnline]     = React.useState(() => navigator.onLine);
+  const [updateReady,   setUpdateReady]  = React.useState(() => window._swUpdateReady || false);
+  const [dataRestored,  setDataRestored] = React.useState(false);
+  const [navHidden,     setNavHidden]    = React.useState(false);
+  const [quickLogOpen,  setQuickLogOpen] = React.useState(() => !!loadDraft()?.workout);
+  const [quickLogTpl,   setQuickLogTpl]  = React.useState(null);
 
   const { workouts, exercises, bodyweight, templates } = data;
 
@@ -60,7 +62,7 @@ function App() {
     return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
   }, []);
 
-  // ── Bottom nav hide/show on scroll ───────────────────────────────────────
+  // ── Bottom nav hide/show on scroll ────────────────────────────────────────
   const navLastY   = React.useRef(0);
   const navCleanup = React.useRef(null);
 
@@ -98,9 +100,12 @@ function App() {
       const exists = prev.find(x => x.id === workout.id);
       return exists ? prev.map(x => x.id === workout.id ? workout : x) : [...prev, workout];
     });
-    setScreen(null); setActive(null); setTab("log");
+    setQuickLogOpen(false);
+    setQuickLogTpl(null);
   }
-  function deleteWorkout(id)           { setW(prev => prev.filter(w => w.id !== id)); setScreen(null); setActive(null); }
+  function deleteWorkout(id) { setW(prev => prev.filter(w => w.id !== id)); setScreen(null); setActive(null); }
+
+  // ── Template CRUD ─────────────────────────────────────────────────────────
   function saveTemplate(workout, name) { setTpl(prev => [...prev, workoutToTemplate(workout, name)]); }
   function deleteTemplate(id)          { setTpl(prev => prev.filter(t => t.id !== id)); }
   function editTemplate(tpl)           { setActive(tpl); setScreen("edit-template"); }
@@ -108,12 +113,18 @@ function App() {
     setTpl(prev => prev.map(t => t.id === edited.id ? { ...t, name: edited.name, unit: edited.unit, entries: edited.entries } : t));
     setScreen(null); setActive(null);
   }
-  function startFromTemplate(tpl) {
-    const w = templateToWorkout(tpl, data.preferredUnit || "kg");
-    window._pendingTemplateWorkout = w;
-    setActive(w);
-    setScreen("new-from-template");
+
+  // ── QuickLog ──────────────────────────────────────────────────────────────
+  function openQuickLog(tpl) {
+    setQuickLogTpl(tpl || null);
+    setQuickLogOpen(true);
   }
+  function cancelQuickLog() {
+    setQuickLogOpen(false);
+    setQuickLogTpl(null);
+  }
+
+  // ── SW update ─────────────────────────────────────────────────────────────
   function applyUpdate() {
     const reg = window._swReg;
     if (reg?.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" });
@@ -121,26 +132,19 @@ function App() {
   }
 
   // ── Screen routing ────────────────────────────────────────────────────────
-  const activeWorkout = active || (screen === "new-from-template" ? window._pendingTemplateWorkout : null);
   const unit = data.preferredUnit || "kg";
 
   const currentScreen =
-    screen === "quicklog"
-      ? React.createElement(QuickLog, { exercises, workouts, templates: templates || [], preferredUnit: unit, onSave: w => { setW(prev => { const e = prev.find(x => x.id === w.id); return e ? prev.map(x => x.id === w.id ? w : x) : [...prev, w]; }); setScreen(null); }, onCancel: () => setScreen(null), onCreateExercise: ex => setEx(prev => [...prev, ex]) })
-    : screen === "new"
-      ? React.createElement(Editor, { exercises, workouts, preferredUnit: unit, onSave: saveWorkout, onCancel: () => setScreen(null) })
-    : screen === "new-from-template" && activeWorkout
-      ? React.createElement(Editor, { workout: activeWorkout, exercises, workouts, preferredUnit: unit, onSave: saveWorkout, onCancel: () => { setScreen(null); setActive(null); window._pendingTemplateWorkout = null; } })
-    : screen === "edit-template" && active
+    screen === "edit"
+      ? React.createElement(Editor, { workout: active, exercises, workouts, preferredUnit: unit, onSave: w => { saveWorkout(w); setScreen(null); setActive(null); setTab("log"); }, onCancel: () => setScreen("detail") })
+    : screen === "edit-template"
       ? React.createElement(Editor, { workout: { ...active, date: active.date || today(), notes: active.notes || '' }, exercises, workouts, preferredUnit: unit, onSave: saveTemplateEdit, onCancel: () => { setScreen(null); setActive(null); }, isTemplate: true })
-    : screen === "edit"
-      ? React.createElement(Editor, { workout: active, exercises, workouts, preferredUnit: unit, onSave: saveWorkout, onCancel: () => setScreen("detail") })
     : screen === "detail"
       ? React.createElement(Detail, { workout: active, exercises, onBack: () => { setScreen(null); setActive(null); }, onEdit: () => setScreen("edit"), onDelete: () => deleteWorkout(active.id), onSaveTemplate: saveTemplate, existingTemplate: (templates || []).some(t => t.createdFrom === active.id) })
     : null;
 
   const mainContent = currentScreen || (
-    tab === "log"      ? React.createElement(Log,        { workouts, exercises, templates: templates || [], onNew: () => setScreen("new"), onQuickLog: () => setScreen("quicklog"), onView: w => { setActive(w); setScreen("detail"); }, onNewFromTemplate: startFromTemplate, onDeleteTemplate: deleteTemplate, onEditTemplate: editTemplate, showInstall: showInstall && !isInstalled && isOnline, onDismissInstall: () => setShowInstall(false), isOnline, updateReady, onApplyUpdate: applyUpdate })
+    tab === "log"      ? React.createElement(Log,        { workouts, exercises, templates: templates || [], onQuickLog: openQuickLog, onView: w => { setActive(w); setScreen("detail"); }, onDeleteTemplate: deleteTemplate, onEditTemplate: editTemplate, showInstall: showInstall && !isInstalled && isOnline, onDismissInstall: () => setShowInstall(false), isOnline, updateReady, onApplyUpdate: applyUpdate, workoutActive: quickLogOpen })
     : tab === "stats"    ? React.createElement(StatsTab,   { workouts, exercises, bodyweight: bodyweight || 80, onSetBW: setBW, preferredUnit: unit, onSetPreferredUnit: setPU })
     : tab === "library"  ? React.createElement(Library,    { exercises, setExercises: setEx })
     : React.createElement(SettingsTab, { data, onRestore: d => { setData(d); saveData(d); }, isOnline, preferredUnit: unit, onSetPreferredUnit: setPU, appVersion: APP_VERSION })
@@ -167,7 +171,19 @@ function App() {
       React.createElement('span', { style: { fontSize: 12, fontWeight: 600, color: "#22c55e" } }, "Data auto-restored from local backup ✓")
     ),
     React.createElement('div', { style: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" } }, mainContent),
-    !screen && React.createElement('div', {
+
+    // Persistent QuickLog overlay — visible on all tabs
+    quickLogOpen && React.createElement(QuickLog, {
+      exercises, workouts,
+      onSave:           saveWorkout,
+      onCancel:         cancelQuickLog,
+      onCreateExercise: ex => setEx(prev => [...prev, ex]),
+      preferredUnit:    unit,
+      initialTemplate:  quickLogTpl,
+    }),
+
+    // Bottom nav — always accessible
+    React.createElement('div', {
       style: { position: "fixed", bottom: 0, left: "50%", transform: navHidden ? "translate(-50%, 100%)" : "translate(-50%, 0)", width: "100%", maxWidth: 430, display: "flex", background: "var(--surface)", borderTop: "1px solid var(--border)", padding: `8px 0 max(12px, env(safe-area-inset-bottom))`, transition: "transform 0.25s ease", zIndex: 10 }
     },
       TABS.map(t => React.createElement('button', {

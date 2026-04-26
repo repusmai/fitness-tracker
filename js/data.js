@@ -42,9 +42,9 @@ function saveData(data) {
 
 // ── Draft (in-progress workout) ───────────────────────────────────────────────
 
-function saveDraft(workout, step) {
+function saveDraft(workout) {
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ workout, step }));
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ workout }));
   } catch (_) {}
 }
 
