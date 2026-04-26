@@ -1,4 +1,8 @@
 #!/bin/bash
+# ── deploy.sh ─────────────────────────────────────────────────────────────────
+# Bumps version, updates script cache-bust query strings, commits, pushes,
+# then verifies the live site matches the deployed version.
+#
 # Usage:
 #   ./deploy.sh [message]                — bump patch
 #   ./deploy.sh [message] --minor        — bump minor, reset patch to 0
@@ -13,6 +17,7 @@ set -e
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 INDEX="$REPO_DIR/index.html"
 
+# ── Read current version ──────────────────────────────────────────────────────
 CURRENT=$(grep -o 'APP_VERSION = "[0-9]*\.[0-9]*\.[0-9]*"' "$INDEX" | grep -o '[0-9]*\.[0-9]*\.[0-9]*')
 if [ -z "$CURRENT" ]; then echo "Error: could not find APP_VERSION in index.html"; exit 1; fi
 
@@ -97,12 +102,45 @@ case "$BUMP" in
     ;;
 esac
 
+# ── Update APP_VERSION in index.html ─────────────────────────────────────────
 sed -i "s/APP_VERSION = \"$CURRENT\"/APP_VERSION = \"$NEW_VERSION\"/" "$INDEX"
+
+# ── Update cache-bust query strings on all script tags ────────────────────────
+# Replaces ?v=X.Y.Z with ?v=NEW_VERSION on every local script src
+sed -i "s/?v=[0-9]*\.[0-9]*\.[0-9]*/?v=$NEW_VERSION/g" "$INDEX"
+# First deploy: replace __VERSION__ placeholder if present
+sed -i "s/__VERSION__/$NEW_VERSION/g" "$INDEX"
+
 echo "Version: $CURRENT → $NEW_VERSION"
 
+# ── Commit and push ───────────────────────────────────────────────────────────
 cd "$REPO_DIR"
 git add -A
 git commit -m "v$NEW_VERSION - ${MSG:-update}"
 git push
 
-echo "Done — deployed v$NEW_VERSION"
+echo "Pushed — waiting for GitHub Pages to deploy..."
+
+# ── Verify live site matches deployed version ─────────────────────────────────
+LIVE_URL="https://repusmai.github.io/fitness-tracker/index.html"
+MAX_ATTEMPTS=12   # 12 x 10s = 2 minutes
+ATTEMPT=0
+VERIFIED=false
+
+while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+  sleep 10
+  ATTEMPT=$((ATTEMPT + 1))
+  LIVE_VERSION=$(curl -s --max-time 10 "$LIVE_URL" | grep -o 'APP_VERSION = "[0-9]*\.[0-9]*\.[0-9]*"' | grep -o '[0-9]*\.[0-9]*\.[0-9]*' 2>/dev/null || echo "")
+  if [ "$LIVE_VERSION" = "$NEW_VERSION" ]; then
+    VERIFIED=true
+    break
+  fi
+  echo "  (${ATTEMPT}/${MAX_ATTEMPTS}) Live version is ${LIVE_VERSION:-unknown}, waiting..."
+done
+
+if $VERIFIED; then
+  echo "✓ Verified — v$NEW_VERSION is live at $LIVE_URL"
+else
+  echo "⚠ Warning: live site still shows v${LIVE_VERSION:-unknown} after 2 minutes."
+  echo "  Check https://github.com/repusmai/fitness-tracker/actions for deploy status."
+fi
