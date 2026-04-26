@@ -91,14 +91,25 @@ LIVE_URL="https://repusmai.github.io/fitness-tracker/index.html"
 MAX_ATTEMPTS=12
 ATTEMPT=0
 VERIFIED=false
+CONFIRM=0
+
+# Initial wait — GitHub Pages takes ~30s just to start the build
+sleep 20
 
 while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
   sleep 10
   ATTEMPT=$((ATTEMPT + 1))
   LIVE_VERSION=$(curl -s --max-time 10 "$LIVE_URL" | grep -o 'APP_VERSION = "[0-9]*\.[0-9]*\.[0-9]*"' | grep -o '[0-9]*\.[0-9]*\.[0-9]*' 2>/dev/null || echo "")
-  if [ "$LIVE_VERSION" = "$NEW_VERSION" ]; then
-    VERIFIED=true
-    break
+  if
+[ "$LIVE_VERSION" = "$NEW_VERSION" ]; then
+    CONFIRM=$((CONFIRM + 1))
+    if [ $CONFIRM -ge 2 ]; then
+      VERIFIED=true
+      break
+    fi
+    echo "  (${ATTEMPT}/${MAX_ATTEMPTS}) Version matches — confirming..."
+  else
+    CONFIRM=0
   fi
   echo "  (${ATTEMPT}/${MAX_ATTEMPTS}) Live version is ${LIVE_VERSION:-unknown}, waiting..."
 done
