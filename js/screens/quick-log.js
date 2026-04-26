@@ -69,7 +69,7 @@ function QuickLog({ exercises, workouts, onSave, onCancel, onCreateExercise, pre
   }
 
   // ── Expanded full-screen workout session ──────────────────────────────────
-  return React.createElement('div', { style: { position: "fixed", inset: 0, zIndex: 20, background: "var(--bg)", display: "flex", flexDirection: "column" } },
+  return React.createElement('div', { style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%", zIndex: 20, background: "var(--bg)", display: "flex", flexDirection: "column", maxWidth: 430, margin: "0 auto" } },
     // Sticky header
     React.createElement('div', { ref: headerRef, style: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 2, transform: headerHidden ? "translateY(-100%)" : "translateY(0)", transition: "transform 0.25s ease", background: "var(--bg)" } },
       React.createElement('div', { style: { padding: "14px 16px", borderBottom: "1px solid var(--border)" } },

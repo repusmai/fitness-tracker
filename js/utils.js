@@ -4,6 +4,8 @@ const { useState, useEffect, useRef } = React;
 
 // ── Unit Conversion ───────────────────────────────────────────────────────────
 
+const KG_TO_LBS = 2.20462;
+const LBS_TO_KG = 1 / KG_TO_LBS;
 
 function convertWeight(value, fromUnit, toUnit) {
   if (fromUnit === toUnit) return value;
@@ -122,7 +124,12 @@ function workoutToTemplate(workout, name) {
     unit:        workout.unit || 'kg',
     entries:     workout.entries.map(entry => ({
       ...entry,
-      sets: entry.sets.map(set => ({ ...set, reps: '', rir: '' })),
+      sets: entry.sets.map(set => ({
+        ...set,
+        reps: '',
+        rir:  '',
+        side: set.side || 'B', // explicitly preserve side so it survives template instantiation
+      })),
     })),
   };
 }
@@ -142,7 +149,11 @@ function templateToWorkout(template, preferredUnit) {
       ...entry,
       _key: `${entry.exerciseId}_${index}_tpl`,
       unit: entry.unit || unit,
-      sets: entry.sets.map(set => ({ ...set, unit: set.unit || unit })),
+      sets: entry.sets.map(set => ({
+        ...set,
+        unit: set.unit || unit,
+        side: set.side || 'B', // carry side through; old templates without it default to Both
+      })),
     })),
   };
 }
