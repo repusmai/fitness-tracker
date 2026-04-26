@@ -29,67 +29,68 @@
     https://unpkg.com/react-dom@19/umd/react-dom.production.min.js
   -->
   <!-- React 19 + ReactDOM combined production build (extracted from original, offline-capable) -->
-  <script>const APP_VERSION = "1.14.4";</script>
+  <script>const APP_VERSION = "1.14.5";</script>
 
   <script>
     // ── Startup integrity check ───────────────────────────────────────────────
-    // Verifies critical globals are defined and not duplicated after all scripts
-    // load. If anything is wrong, clears the SW cache and reloads automatically.
+    // Checks for signs of a stale cache (duplicate declarations cause JS errors,
+    // or the root element stays empty after load). Only triggers once per session
+    // to prevent reload loops.
     window.addEventListener('load', function() {
-      var issues = [];
-      var required = ['KG_TO_LBS', 'LBS_TO_KG', 'countSetsWorkouts', 'useScrollHide', 'MUSCLE_GROUPS', 'loadData', 'saveData'];
-      required.forEach(function(name) {
-        if (typeof window[name] === 'undefined') issues.push('Missing: ' + name);
-      });
-      if (issues.length === 0) return;
-      console.warn('[FitnessTracker] Integrity check failed:', issues);
-      // Show message then clear caches and reload
-      var banner = document.createElement('div');
-      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#1c1c1c;color:#f59e0b;font-family:sans-serif;font-size:13px;font-weight:600;padding:12px 16px;text-align:center;border-bottom:1px solid #92400e;';
-      banner.textContent = 'Refreshing to fix a caching issue…';
-      document.body.appendChild(banner);
-      if ('caches' in window) {
-        caches.keys().then(function(keys) {
-          return Promise.all(keys.map(function(k) { return caches.delete(k); }));
-        }).then(function() {
-          if (navigator.serviceWorker) {
-            navigator.serviceWorker.getRegistrations().then(function(regs) {
-              return Promise.all(regs.map(function(r) { return r.unregister(); }));
-            }).then(function() { window.location.reload(true); });
-          } else {
-            window.location.reload(true);
-          }
-        });
-      } else {
-        window.location.reload(true);
-      }
+      if (sessionStorage.getItem('_integrityChecked')) return;
+      sessionStorage.setItem('_integrityChecked', '1');
+      setTimeout(function() {
+        var root = document.getElementById('root');
+        var hasContent = root && root.children.length > 0;
+        if (hasContent) return;
+        console.warn('[FitnessTracker] Root is empty after load — possible stale cache. Clearing and reloading.');
+        var banner = document.createElement('div');
+        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#1c1c1c;color:#f59e0b;font-family:sans-serif;font-size:13px;font-weight:600;padding:12px 16px;text-align:center;border-bottom:1px solid #92400e;';
+        banner.textContent = 'Refreshing to fix a caching issue…';
+        document.body.appendChild(banner);
+        if ('caches' in window) {
+          caches.keys().then(function(keys) {
+            return Promise.all(keys.map(function(k) { return caches.delete(k); }));
+          }).then(function() {
+            if (navigator.serviceWorker) {
+              navigator.serviceWorker.getRegistrations().then(function(regs) {
+                return Promise.all(regs.map(function(r) { return r.unregister(); }));
+              }).then(function() { window.location.reload(true); });
+            } else {
+              window.location.reload(true);
+            }
+          });
+        } else {
+          window.location.reload(true);
+        }
+      }, 3000);
     });
   </script>
   <script src="js/react.production.min.js"></script>
   <script src="js/react-dom.production.min.js"></script>
 
   <!-- App modules — load order matters -->
-  <script src="js/pwa.js?v=1.14.4"></script>
-  <script src="js/db.js?v=1.14.4"></script>
-  <script src="js/themes.js?v=1.14.4"></script>
-  <script src="js/constants.js?v=1.14.4"></script>
-  <script src="js/data.js?v=1.14.4"></script>
-  <script src="js/google-drive.js?v=1.14.4"></script>
-  <script src="js/utils.js?v=1.14.4"></script>
-  <script src="js/components/ui.js?v=1.14.4"></script>
-  <script src="js/components/charts.js?v=1.14.4"></script>
-  <script src="js/components/muscle-selector.js?v=1.14.4"></script>
-  <script src="js/components/exercise-picker.js?v=1.14.4"></script>
-  <script src="js/components/set-row.js?v=1.14.4"></script>
-  <script src="js/components/workout-entry-card.js?v=1.14.4"></script>
-  <script src="js/components/install-banner.js?v=1.14.4"></script>
-  <script src="js/screens/editor.js?v=1.14.4"></script>
-  <script src="js/screens/detail.js?v=1.14.4"></script>
-  <script src="js/screens/quick-log.js?v=1.14.4"></script>
-  <script src="js/screens/log.js?v=1.14.4"></script>
-  <script src="js/screens/stats.js?v=1.14.4"></script>
-  <script src="js/screens/library.js?v=1.14.4"></script>
-  <script src="js/screens/settings.js?v=1.14.4"></script>
-  <script src="js/app.js?v=1.14.4"></script>
+  <script src="js/pwa.js?v=1.14.5"></script>
+  <script src="js/db.js?v=1.14.5"></script>
+  <script src="js/themes.js?v=1.14.5"></script>
+  <script src="js/constants.js?v=1.14.5"></script>
+  <script src="js/data.js?v=1.14.5"></script>
+  <script src="js/google-drive.js?v=1.14.5"></script>
+  <script src="js/utils.js?v=1.14.5"></script>
+  <script src="js/components/ui.js?v=1.14.5"></script>
+  <script src="js/components/charts.js?v=1.14.5"></script>
+  <script src="js/components/muscle-selector.js?v=1.14.5"></script>
+  <script src="js/components/exercise-picker.js?v=1.14.5"></script>
+  <script src="js/components/set-row.js?v=1.14.5"></script>
+  <script src="js/components/workout-entry-card.js?v=1.14.5"></script>
+  <script src="js/components/install-banner.js?v=1.14.5"></script>
+  <script src="js/screens/editor.js?v=1.14.5"></script>
+  <script src="js/screens/detail.js?v=1.14.5"></script>
+  <script src="js/screens/quick-log.js?v=1.14.5"></script>
+  <script src="js/screens/log.js?v=1.14.5"></script>
+  <script src="js/screens/stats.js?v=1.14.5"></script>
+  <script src="js/screens/library.js?v=1.14.5"></script>
+  <script src="js/screens/settings.js?v=1.14.5"></script>
+  <script src="js/app.js?v=1.14.5"></script>
 </body>
 </html>
