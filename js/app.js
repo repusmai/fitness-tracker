@@ -12,7 +12,11 @@ function App() {
   const [updateReady,   setUpdateReady]  = React.useState(() => window._swUpdateReady || false);
   const [dataRestored,  setDataRestored] = React.useState(false);
   const [navHidden,     setNavHidden]    = React.useState(false);
-  const [quickLogOpen,  setQuickLogOpen] = React.useState(() => !!loadDraft()?.workout);
+  const [quickLogOpen,  setQuickLogOpen] = React.useState(() => {
+    const draft = loadDraft();
+    // Only resume if draft has a valid workout with entries array
+    return !!(draft?.workout?.entries);
+  });
   const [quickLogTpl,   setQuickLogTpl]  = React.useState(null);
 
   const { workouts, exercises, bodyweight, templates } = data;
@@ -77,8 +81,7 @@ function App() {
         const dy = y - navLastY.current;
         if (Math.abs(dy) < 6) return;
         const nearBottom = el.scrollHeight - y - el.clientHeight < 80;
-        if (nearBottom) { setNavHidden(false); navLastY.current = y; return; }
-        setNavHidden(dy > 0 && y > 60);
+        if (!nearBottom) setNavHidden(dy > 0 && y > 60);
         navLastY.current = y;
       };
       el.addEventListener('scroll', onScroll, { passive: true });

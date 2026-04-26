@@ -4,6 +4,8 @@ const { useState, useEffect, useRef } = React;
 
 // ── Unit Conversion ───────────────────────────────────────────────────────────
 
+const KG_TO_LBS = 2.20462;
+const LBS_TO_KG = 1 / KG_TO_LBS;
 
 function convertWeight(value, fromUnit, toUnit) {
   if (fromUnit === toUnit) return value;
@@ -140,17 +142,17 @@ function templateToWorkout(template, preferredUnit) {
   return {
     id:      Date.now().toString(),
     date:    today(),
-    name:    template.name,
+    name:    template.name || 'Workout',
     notes:   '',
     unit,
-    entries: template.entries.map((entry, index) => ({
+    entries: (template.entries || []).map((entry, index) => ({
       ...entry,
       _key: `${entry.exerciseId}_${index}_tpl`,
       unit: entry.unit || unit,
-      sets: entry.sets.map(set => ({
+      sets: (entry.sets || []).map(set => ({
         ...set,
         unit: set.unit || unit,
-        side: set.side || 'B', // carry side through; old templates without it default to Both
+        side: set.side || 'B',
       })),
     })),
   };
@@ -174,12 +176,8 @@ function useScrollHide(threshold = 8) {
     const onScroll = () => {
       const y = el.scrollTop;
       if (Math.abs(y - lastY.current) < threshold) return;
-      // Always show header near the bottom and don't update lastY there —
-      // this prevents the paddingTop change from shifting scrollHeight and
-      // causing a feedback loop that jitters the header.
       const nearBottom = el.scrollHeight - y - el.clientHeight < 60;
-      if (nearBottom) { setHidden(false); return; }
-      setHidden(y > lastY.current && y > 50);
+      if (!nearBottom) setHidden(y > lastY.current && y > 50);
       lastY.current = y;
     };
 

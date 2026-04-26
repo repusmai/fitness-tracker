@@ -9,11 +9,16 @@ function QuickLog({ exercises, workouts, onSave, onCancel, onCreateExercise, pre
     return { id: Date.now().toString(), date: today(), name: "Quick Workout", entries: [], notes: "", unit: pu };
   }
 
-  const [workout,        setWorkout]        = React.useState(() => {
-    const draft = loadDraft();
-    if (draft?.workout) return draft.workout;
-    if (initialTemplate) return templateToWorkout(initialTemplate, pu);
-    return makeBlank();
+  const [workout, setWorkout] = React.useState(() => {
+    try {
+      const draft = loadDraft();
+      if (draft?.workout?.entries) return draft.workout;
+      if (initialTemplate?.entries !== undefined) return templateToWorkout(initialTemplate, pu);
+      return makeBlank();
+    } catch (e) {
+      clearDraft();
+      return makeBlank();
+    }
   });
   const [showPicker,     setShowPicker]     = React.useState(false);
   const [confirmDiscard, setConfirmDiscard] = React.useState(false);
@@ -60,7 +65,7 @@ function QuickLog({ exercises, workouts, onSave, onCancel, onCreateExercise, pre
   if (!expanded) {
     return React.createElement('button', {
       onClick: () => setExpanded(true),
-      style: { position: "fixed", bottom: 76, left: "50%", transform: "translateX(-50%)", zIndex: 20, background: "var(--grad)", border: "none", borderRadius: 99, padding: "10px 20px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 10, boxShadow: "0 4px 20px rgba(0,0,0,0.4)", maxWidth: 390, width: "calc(100% - 32px)" }
+      style: { position: "fixed", bottom: "calc(76px + env(safe-area-inset-bottom))", left: "50%", transform: "translateX(-50%)", zIndex: 20, background: "var(--grad)", border: "none", borderRadius: 99, padding: "10px 20px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 10, boxShadow: "0 4px 20px rgba(0,0,0,0.4)", maxWidth: 390, width: "calc(100% - 32px)" }
     },
       React.createElement(Icon, { name: "play", size: 16, color: "#fff" }),
       React.createElement('span', { style: { flex: 1, fontSize: 13, fontWeight: 700, color: "#fff", textAlign: "left" } }, workout.name),
