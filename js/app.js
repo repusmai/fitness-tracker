@@ -12,12 +12,13 @@ function App() {
   const [updateReady,   setUpdateReady]  = React.useState(() => window._swUpdateReady || false);
   const [dataRestored,  setDataRestored] = React.useState(false);
   const [navHidden,     setNavHidden]    = React.useState(false);
-  const [quickLogOpen,  setQuickLogOpen] = React.useState(() => {
+  const [quickLogOpen,      setQuickLogOpen]      = React.useState(() => {
     const draft = loadDraft();
-    // Only resume if draft has a valid workout with entries array
     return !!(draft?.workout?.entries);
   });
-  const [quickLogTpl,   setQuickLogTpl]  = React.useState(null);
+  const [quickLogTpl,       setQuickLogTpl]       = React.useState(null);
+  const [quickLogMinimised, setQuickLogMinimised] = React.useState(false);
+  const [showTplPicker,     setShowTplPicker]     = React.useState(false);
 
   const { workouts, exercises, bodyweight, templates } = data;
 
@@ -119,12 +120,39 @@ function App() {
 
   // ── QuickLog ──────────────────────────────────────────────────────────────
   function openQuickLog(tpl) {
-    setQuickLogTpl(tpl || null);
-    setQuickLogOpen(true);
+    if (quickLogOpen) {
+      // Already in workout — restore it
+      setQuickLogMinimised(false);
+      setTab("log");
+      return;
+    }
+    if (tpl) {
+      // Started from a specific template card
+      setQuickLogTpl(tpl);
+      setQuickLogOpen(true);
+      setQuickLogMinimised(false);
+      setTab("log");
+    } else if ((templates || []).length > 0) {
+      // Show template picker
+      setShowTplPicker(true);
+    } else {
+      // No templates — start blank
+      setQuickLogTpl(null);
+      setQuickLogOpen(true);
+      setQuickLogMinimised(false);
+      setTab("log");
+    }
   }
   function cancelQuickLog() {
     setQuickLogOpen(false);
     setQuickLogTpl(null);
+    setQuickLogMinimised(false);
+  }
+
+  // ── Tab switching — clear detail/edit screens when leaving log ────────────
+  function switchTab(newTab) {
+    if (newTab !== "log" && screen) { setScreen(null); setActive(null); }
+    setTab(newTab);
   }
 
   // ── SW update ─────────────────────────────────────────────────────────────
@@ -175,22 +203,66 @@ function App() {
     ),
     React.createElement('div', { style: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" } }, mainContent),
 
-    // Persistent QuickLog overlay — visible on all tabs
-    quickLogOpen && React.createElement(QuickLog, {
+    // Persistent QuickLog overlay
+    quickLogOpen && !quickLogMinimised && React.createElement(QuickLog, {
       exercises, workouts,
-      onSave:           saveWorkout,
+      onSave:           w => { saveWorkout(w); setQuickLogMinimised(false); },
       onCancel:         cancelQuickLog,
       onCreateExercise: ex => setEx(prev => [...prev, ex]),
       preferredUnit:    unit,
       initialTemplate:  quickLogTpl,
+      onMinimise:       () => { setQuickLogMinimised(true); },
     }),
+
+    // Persistent "In Workout" pill — shown when QuickLog is minimised
+    quickLogOpen && quickLogMinimised && React.createElement('button', {
+      onClick: () => setQuickLogMinimised(false),
+      style: { position: "fixed", bottom: "calc(66px + env(safe-area-inset-bottom))", left: "50%", transform: "translate(-50%, 0)", zIndex: 15, background: "var(--grad)", border: "none", borderRadius: 99, padding: "9px 18px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 8, boxShadow: "0 4px 20px rgba(0,0,0,0.35)", maxWidth: 390, width: "calc(100% - 32px)", transition: "transform 0.25s ease" }
+    },
+      React.createElement(Icon, { name: "play", size: 14, color: "#fff" }),
+      React.createElement('span', { style: { flex: 1, fontSize: 13, fontWeight: 700, color: "#fff", textAlign: "left" } }, "Workout in progress"),
+      React.createElement('span', { style: { fontSize: 11, color: "rgba(255,255,255,0.7)", fontWeight: 600 } }, "Tap to return")
+    ),
+
+    // Template picker sheet — shown when Start is tapped and templates exist
+    showTplPicker && React.createElement('div', { style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 30, display: "flex", alignItems: "flex-end" } },
+      React.createElement('div', { style: { background: "var(--surface)", borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 430, margin: "0 auto", maxHeight: "80vh", display: "flex", flexDirection: "column", border: "1px solid var(--border)" } },
+        React.createElement('div', { style: { padding: "16px 16px 10px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" } },
+          React.createElement('span', { style: { fontWeight: 800, fontSize: 16, color: "var(--text)" } }, "Start Workout"),
+          React.createElement('button', { onClick: () => setShowTplPicker(false), style: { background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 20, padding: 4 } }, "✕")
+        ),
+        React.createElement('div', { style: { overflowY: "auto", padding: "10px 12px 24px", display: "flex", flexDirection: "column", gap: 8 } },
+          // Blank start option
+          React.createElement('button', {
+            onClick: () => { setShowTplPicker(false); setQuickLogTpl(null); setQuickLogOpen(true); setQuickLogMinimised(false); setTab("log"); },
+            style: { background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 14, padding: "14px 16px", cursor: "pointer", fontFamily: "inherit", textAlign: "left", display: "flex", alignItems: "center", gap: 12 }
+          },
+            React.createElement('div', { style: { width: 36, height: 36, borderRadius: 10, background: "var(--accentSoft)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } },
+              React.createElement(Icon, { name: "plus", size: 18, color: "var(--accent)" })),
+            React.createElement('div', null,
+              React.createElement('div', { style: { fontWeight: 700, fontSize: 14, color: "var(--text)" } }, "Blank Workout"),
+              React.createElement('div', { style: { fontSize: 12, color: "var(--muted2)", marginTop: 2 } }, "Start from scratch")
+            )
+          ),
+          // Template options
+          (templates || []).map(tpl => React.createElement('button', {
+            key: tpl.id,
+            onClick: () => { setShowTplPicker(false); setQuickLogTpl(tpl); setQuickLogOpen(true); setQuickLogMinimised(false); setTab("log"); },
+            style: { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: "14px 16px", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }
+          },
+            React.createElement('div', { style: { fontWeight: 700, fontSize: 14, color: "var(--text)", marginBottom: 4 } }, tpl.name),
+            React.createElement('div', { style: { fontSize: 12, color: "var(--muted2)" } }, tpl.entries.length, " exercises · ", tpl.entries.reduce((a, e) => a + e.sets.length, 0), " sets")
+          ))
+        )
+      )
+    ),
 
     // Bottom nav — always accessible
     React.createElement('div', {
       style: { position: "fixed", bottom: 0, left: "50%", transform: navHidden ? "translate(-50%, 100%)" : "translate(-50%, 0)", width: "100%", maxWidth: 430, display: "flex", background: "var(--surface)", borderTop: "1px solid var(--border)", padding: `8px 0 max(12px, env(safe-area-inset-bottom))`, transition: "transform 0.25s ease", zIndex: 10 }
     },
       TABS.map(t => React.createElement('button', {
-        key: t.id, onClick: () => setTab(t.id),
+        key: t.id, onClick: () => switchTab(t.id),
         style: { flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "6px 0", fontFamily: "inherit" }
       },
         React.createElement(Icon, { name: t.icon, size: 22, color: tab === t.id ? "var(--accent)" : "var(--subtle)" }),

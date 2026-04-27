@@ -2,7 +2,7 @@
 // Persistent workout session overlay — lives above the nav, accessible from
 // any tab. Rendered by app.js as a fixed bottom sheet that expands full screen.
 
-function QuickLog({ exercises, workouts, onSave, onCancel, onCreateExercise, preferredUnit, initialTemplate }) {
+function QuickLog({ exercises, workouts, onSave, onCancel, onCreateExercise, preferredUnit, initialTemplate, onMinimise }) {
   const pu = preferredUnit || "kg";
 
   function makeBlank() {
@@ -66,6 +66,10 @@ function QuickLog({ exercises, workouts, onSave, onCancel, onCreateExercise, pre
     React.createElement('div', { ref: headerRef, style: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 2, transform: headerHidden ? "translateY(-100%)" : "translateY(0)", transition: "transform 0.25s ease", background: "var(--bg)" } },
       React.createElement('div', { style: { padding: "14px 16px", borderBottom: "1px solid var(--border)" } },
         React.createElement('div', { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 12 } },
+          React.createElement('button', { onClick: onMinimise, style: { background: "none", border: "none", cursor: "pointer", color: "var(--muted2)", padding: 4, display: "flex", alignItems: "center" } },
+            React.createElement('svg', { width:20, height:20, viewBox:"0 0 24 24", fill:"none", stroke:"currentColor", strokeWidth:"2.5", strokeLinecap:"round", strokeLinejoin:"round" },
+              React.createElement('polyline', { points:"15 18 9 12 15 6" }))
+          ),
           React.createElement('span', { style: { flex: 1, fontSize: 12, color: "var(--muted)", fontWeight: 600 } },
             workout.entries.length, " exercise", workout.entries.length !== 1 ? "s" : "", " · ", fmtSets(totalSets), " set", totalSets !== 1 ? "s" : "", " logged"
           ),
