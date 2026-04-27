@@ -2,7 +2,7 @@
 // Persistent workout session overlay — lives above the nav, accessible from
 // any tab. Rendered by app.js as a fixed bottom sheet that expands full screen.
 
-function QuickLog({ exercises, workouts, onSave, onCancel, onCreateExercise, preferredUnit, initialTemplate, onMinimise }) {
+function QuickLog({ exercises, workouts, onSave, onCancel, onCreateExercise, preferredUnit, initialTemplate, onMinimise, showTimer }) {
   const pu = preferredUnit || "kg";
 
   function makeBlank() {
@@ -13,7 +13,13 @@ function QuickLog({ exercises, workouts, onSave, onCancel, onCreateExercise, pre
     try {
       const draft = loadDraft();
       if (draft?.workout?.entries) return draft.workout;
-      if (initialTemplate?.entries !== undefined) return templateToWorkout(initialTemplate, pu);
+      if (initialTemplate?.entries !== undefined) {
+        const w = templateToWorkout(initialTemplate, pu);
+        // Start timer immediately when loading a template with exercises
+        if (w.entries.length > 0 && !w.startedAt) w.startedAt = Date.now();
+        if (initialTemplate.id) w.templateId = initialTemplate.id;
+        return w;
+      }
       return makeBlank();
     } catch (e) {
       clearDraft();
@@ -22,6 +28,7 @@ function QuickLog({ exercises, workouts, onSave, onCancel, onCreateExercise, pre
   });
   const [showPicker,     setShowPicker]     = React.useState(false);
   const [confirmDiscard, setConfirmDiscard] = React.useState(false);
+  const [elapsed,        setElapsed]        = React.useState(0);
 
   const { ref: scrollRef, hidden: headerHidden } = useScrollHide();
   const headerRef = React.useRef(null);
@@ -36,9 +43,25 @@ function QuickLog({ exercises, workouts, onSave, onCancel, onCreateExercise, pre
     return () => ro.disconnect();
   }, []);
 
+  // Timer — ticks every second based on startedAt timestamp, persists across tab switches
+  React.useEffect(() => {
+    if (!workout.startedAt) return;
+    const tick = () => {
+      const secs = Math.floor((Date.now() - workout.startedAt) / 1000);
+      setElapsed(Math.min(secs, MAX_WORKOUT_SECS + 1));
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [workout.startedAt]);
+
   function addExercise(ex) {
     const wu = workout.unit || pu;
-    setWorkout(p => ({ ...p, entries: [...p.entries, { _key: `${ex.id}_${Date.now()}`, exerciseId: ex.id, sets: [{ weight: "", reps: "", rir: "", side: "B", unit: wu }], note: "", unit: wu }] }));
+    setWorkout(p => ({
+      ...p,
+      startedAt: p.startedAt || (p.entries.length === 0 ? Date.now() : p.startedAt),
+      entries: [...p.entries, { _key: `${ex.id}_${Date.now()}`, exerciseId: ex.id, sets: [{ weight: "", reps: "", rir: "", side: "B", unit: wu }], note: "", unit: wu }]
+    }));
     setShowPicker(false);
   }
   function updateEntry(i, e) { setWorkout(p => ({ ...p, entries: p.entries.map((x, j) => j === i ? e : x) })); }
@@ -52,7 +75,11 @@ function QuickLog({ exercises, workouts, onSave, onCancel, onCreateExercise, pre
 
   function finish() {
     if (!workout.entries.length) { setConfirmDiscard(true); return; }
-    clearDraft(); onSave(workout);
+    const duration = workout.startedAt
+      ? Math.min(Math.floor((Date.now() - workout.startedAt) / 1000), MAX_WORKOUT_SECS + 1)
+      : null;
+    clearDraft();
+    onSave({ ...workout, duration });
   }
   function discard() { clearDraft(); onCancel(); }
 
@@ -65,6 +92,11 @@ function QuickLog({ exercises, workouts, onSave, onCancel, onCreateExercise, pre
     // Sticky header
     React.createElement('div', { ref: headerRef, style: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 2, transform: headerHidden ? "translateY(-100%)" : "translateY(0)", transition: "transform 0.25s ease", background: "var(--bg)" } },
       React.createElement('div', { style: { padding: "14px 16px", borderBottom: "1px solid var(--border)" } },
+        showTimer && workout.startedAt && React.createElement('div', { style: { textAlign: "center", marginBottom: 10 } },
+          React.createElement('span', { style: { fontSize: 32, fontWeight: 900, color: elapsed > MAX_WORKOUT_SECS ? "var(--muted)" : "var(--text)", fontVariantNumeric: "tabular-nums", letterSpacing: "0.04em", fontFamily: "'DM Sans','Segoe UI',sans-serif" } },
+            fmtDuration(elapsed)
+          )
+        ),
         React.createElement('div', { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 12 } },
           React.createElement('button', { onClick: onMinimise, style: { background: "none", border: "none", cursor: "pointer", color: "var(--muted2)", padding: 4, display: "flex", alignItems: "center" } },
             React.createElement('svg', { width:20, height:20, viewBox:"0 0 24 24", fill:"none", stroke:"currentColor", strokeWidth:"2.5", strokeLinecap:"round", strokeLinejoin:"round" },

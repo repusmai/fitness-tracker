@@ -97,6 +97,7 @@ function App() {
   const setBW  = bw => setData(prev => { const next = { ...prev, bodyweight: bw };                                                   saveData(next); return next; });
   const setTpl = fn => setData(prev => { const next = { ...prev, templates:  typeof fn === "function" ? fn(prev.templates || []) : fn }; saveData(next); return next; });
   const setPU  = u  => setData(prev => { const next = { ...prev, preferredUnit: u };                                                 saveData(next); return next; });
+  const setShowTimer = v => setData(prev => { const next = { ...prev, showTimer: v }; saveData(next); return next; });
 
   // ── Workout CRUD ──────────────────────────────────────────────────────────
   function saveWorkout(workout) {
@@ -195,7 +196,7 @@ function App() {
     tab === "log"      ? React.createElement(Log,        { workouts, exercises, templates: templates || [], onQuickLog: openQuickLog, onView: w => { setActive(w); setScreen("detail"); }, onDeleteTemplate: deleteTemplate, onEditTemplate: editTemplate, showInstall: showInstall && !isInstalled && isOnline, onDismissInstall: () => setShowInstall(false), isOnline, updateReady, onApplyUpdate: applyUpdate, workoutActive: quickLogOpen })
     : tab === "stats"    ? React.createElement(StatsTab,   { workouts, exercises, bodyweight: bodyweight || 80, onSetBW: setBW, preferredUnit: unit, onSetPreferredUnit: setPU })
     : tab === "library"  ? React.createElement(Library,    { exercises, setExercises: setEx })
-    : React.createElement(SettingsTab, { data, onRestore: d => { setData(d); saveData(d); }, isOnline, preferredUnit: unit, onSetPreferredUnit: setPU, appVersion: APP_VERSION })
+    : React.createElement(SettingsTab, { data, onRestore: d => { setData(d); saveData(d); }, isOnline, preferredUnit: unit, onSetPreferredUnit: setPU, appVersion: APP_VERSION, showTimer: data.showTimer !== false, onSetShowTimer: setShowTimer })
   );
 
   const TABS = [
@@ -229,6 +230,7 @@ function App() {
       preferredUnit:    unit,
       initialTemplate:  quickLogTpl,
       onMinimise:       () => { setQuickLogMinimised(true); },
+      showTimer:        data.showTimer !== false,
     }),
 
     // Persistent "In Workout" pill — shown when QuickLog is minimised
@@ -264,8 +266,7 @@ function App() {
           // Template options
           (templates || []).map(tpl => React.createElement('button', {
             key: tpl.id,
-            onClick: () => { setShowTplPicker(false); setQuickLogTpl(tpl); setQuickLogOpen(true); setQuickLogMinimised(false); setTab("log"); },
-            style: { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: "14px 16px", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }
+            onClick: () => { setShowTplPicker(false); setQuickLogTpl(tpl); setQuickLogOpen(true); setQuickLogMinimised(false); setTab("log"); },            style: { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: "14px 16px", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }
           },
             React.createElement('div', { style: { fontWeight: 700, fontSize: 14, color: "var(--text)", marginBottom: 4 } }, tpl.name),
             React.createElement('div', { style: { fontSize: 12, color: "var(--muted2)" } }, tpl.entries.length, " exercises · ", tpl.entries.reduce((a, e) => a + e.sets.length, 0), " sets")

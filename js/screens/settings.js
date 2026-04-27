@@ -31,7 +31,7 @@ function ThemeSelector() {
 }
 
 // ── Settings Tab ──────────────────────────────────────────────────────────────
-function SettingsTab({ data, onRestore, isOnline, preferredUnit, onSetPreferredUnit, appVersion }) {
+function SettingsTab({ data, onRestore, isOnline, preferredUnit, onSetPreferredUnit, appVersion, showTimer, onSetShowTimer }) {
   const [updateStatus,  setUpdateStatus]  = React.useState(null);
   const [updating,      setUpdating]      = React.useState(false);
   const [importState,   setImportState]   = React.useState(null);
@@ -292,6 +292,19 @@ function SettingsTab({ data, onRestore, isOnline, preferredUnit, onSetPreferredU
             React.createElement('div', { style: { fontSize: 12, color: "var(--muted)", marginTop: 1 } }, "Used for all new workouts and exercises")
           ),
           React.createElement(UnitToggle, { unit: preferredUnit || "kg", onChange: onSetPreferredUnit })
+        ),
+        React.createElement('div', { style: { padding: "14px 16px", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 } },
+          React.createElement('div', { style: { width: 36, height: 36, borderRadius: 10, background: "var(--accent-soft)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } },
+            React.createElement('svg', { width:"18",height:"18",viewBox:"0 0 24 24",fill:"none",stroke:"var(--accent-mid)",strokeWidth:"2",strokeLinecap:"round",strokeLinejoin:"round" }, React.createElement('circle', { cx:"12",cy:"12",r:"10" }), React.createElement('polyline', { points:"12 6 12 12 16 14" }))
+          ),
+          React.createElement('div', { style: { flex: 1 } },
+            React.createElement('div', { style: { fontSize: 14, fontWeight: 600, color: "var(--text)" } }, "Workout timer"),
+            React.createElement('div', { style: { fontSize: 12, color: "var(--muted)", marginTop: 1 } }, showTimer ? "Displayed in workout header" : "Running in background only")
+          ),
+          React.createElement('button', {
+            onClick: () => onSetShowTimer(!showTimer),
+            style: { background: showTimer ? "var(--grad)" : "var(--surface2)", border: showTimer ? "none" : "1px solid var(--border2)", borderRadius: 8, padding: "6px 14px", cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 700, color: showTimer ? "#fff" : "var(--muted2)", transition: "all 0.15s" }
+          }, showTimer ? "On" : "Off")
         ),
         React.createElement(Row, {
           icon: "download", title: "Check for updates",

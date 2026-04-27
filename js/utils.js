@@ -156,7 +156,30 @@ function templateToWorkout(template, preferredUnit) {
   };
 }
 
-// ── Custom React Hooks ────────────────────────────────────────────────────────
+// ── Duration Formatting ───────────────────────────────────────────────────────
+const MAX_WORKOUT_SECS = 3 * 60 * 60; // 3 hours
+
+function fmtDuration(secs) {
+  if (!secs && secs !== 0) return null;
+  if (secs > MAX_WORKOUT_SECS) return "3:00:00";
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  return `${m}:${String(s).padStart(2,'0')}`;
+}
+
+function fmtDurationShort(secs) {
+  if (!secs && secs !== 0) return null;
+  if (secs > MAX_WORKOUT_SECS) return "3h+";
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  if (h > 0 && m > 0) return `${h}h ${m}m`;
+  if (h > 0) return `${h}h`;
+  return `${m || 0}m`;
+}
+
+
 
 /**
  * Hides a fixed header when the user scrolls down, reveals it on scroll up.

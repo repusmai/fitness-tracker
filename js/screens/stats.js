@@ -5,6 +5,9 @@ function StatsTab({ workouts, exercises, bodyweight, onSetBW, preferredUnit, onS
   const [bwInput,        setBwInput]        = React.useState(String(bodyweight));
   const [displayUnit,    setDisplayUnit]    = React.useState(preferredUnit || "kg");
   const totalSets = countSetsWorkouts(workouts, exercises);
+  const timedWorkouts = workouts.filter(w => w.duration != null);
+  const totalTimeSecs = timedWorkouts.reduce((a, w) => a + Math.min(w.duration, MAX_WORKOUT_SECS), 0);
+  const avgTimeSecs   = timedWorkouts.length ? Math.round(totalTimeSecs / timedWorkouts.length) : null;
 
   function handleUnitToggle(unit) { setDisplayUnit(unit); onSetPreferredUnit(unit); }
 
@@ -22,7 +25,7 @@ function StatsTab({ workouts, exercises, bodyweight, onSetBW, preferredUnit, onS
       )
     ),
 
-    React.createElement('div', { 'data-main-scroll': true, style: { overflowY: "auto", overflowX: "hidden", flex: 1, padding: "16px", paddingBottom: "76px", display: "flex", flexDirection: "column", gap: 14, WebkitOverflowScrolling: "touch" } },
+    React.createElement('div', { 'data-main-scroll': true, style: { overflowY: "auto", overflowX: "hidden", flex: 1, padding: "16px", display: "flex", flexDirection: "column", gap: 14, WebkitOverflowScrolling: "touch" } },
       // Bodyweight card
       React.createElement('div', { style: { background: "var(--surface)", borderRadius: 16, padding: "14px", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" } },
         React.createElement('div', { style: { display: "flex", alignItems: "center", gap: 10 } },
@@ -47,10 +50,12 @@ function StatsTab({ workouts, exercises, bodyweight, onSetBW, preferredUnit, onS
         React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 } }, "Lifetime Stats"),
         React.createElement('div', { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } },
           [
-            { label: "Workouts",   value: workouts.length, sub: "total" },
-            { label: "Total Sets", value: fmtSets(totalSets), sub: "all time" },
-            { label: "Avg Sets",   value: workouts.length ? fmtSets(Math.round(totalSets / workouts.length * 10) / 10) : 0, sub: "per session" },
-            { label: "Exercises",  value: workouts.reduce((a, w) => a + w.entries.length, 0), sub: "logged" },
+            { label: "Workouts",   value: workouts.length,                                                                             sub: "total"       },
+            { label: "Total Sets", value: fmtSets(totalSets),                                                                         sub: "all time"    },
+            { label: "Avg Sets",   value: workouts.length ? fmtSets(Math.round(totalSets / workouts.length * 10) / 10) : 0,           sub: "per session" },
+            { label: "Exercises",  value: workouts.reduce((a, w) => a + w.entries.length, 0),                                         sub: "logged"      },
+            { label: "Avg Time",   value: avgTimeSecs != null ? fmtDurationShort(avgTimeSecs) : "—",                                  sub: "per session" },
+            { label: "Total Time", value: timedWorkouts.length ? fmtDurationShort(totalTimeSecs) : "—",                               sub: "all time"    },
           ].map(s => React.createElement('div', { key: s.label, style: { background: "var(--surface)", borderRadius: 14, padding: "14px", border: "1px solid var(--border)" } },
             React.createElement('div', { style: { fontSize: 24, fontWeight: 900, color: "var(--text)" } }, s.value),
             React.createElement('div', { style: { fontSize: 12, fontWeight: 700, color: "var(--muted2)", marginTop: 2 } }, s.label),

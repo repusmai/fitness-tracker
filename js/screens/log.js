@@ -79,7 +79,8 @@ function Log({ workouts, exercises, templates, onQuickLog, onView, onDeleteTempl
                     React.createElement('div', { style: { marginBottom: 8 } }, React.createElement(MusclePills, { muscles, max: 5 })),
                     React.createElement('div', { style: { display: "flex", gap: 14 } },
                       React.createElement('span', { style: { fontSize: 12, color: "var(--muted2)" } }, React.createElement('span', { style: { color: "var(--subtle)", fontWeight: 700 } }, w.entries.length), " exercises"),
-                      React.createElement('span', { style: { fontSize: 12, color: "var(--muted2)" } }, React.createElement('span', { style: { color: "var(--subtle)", fontWeight: 700 } }, fmtSets(sets)), " sets")
+                      React.createElement('span', { style: { fontSize: 12, color: "var(--muted2)" } }, React.createElement('span', { style: { color: "var(--subtle)", fontWeight: 700 } }, fmtSets(sets)), " sets"),
+                      w.duration != null && React.createElement('span', { style: { fontSize: 12, color: "var(--muted2)" } }, React.createElement('span', { style: { color: "var(--subtle)", fontWeight: 700 } }, fmtDurationShort(w.duration)))
                     )
                   );
                 })
@@ -97,6 +98,10 @@ function Log({ workouts, exercises, templates, onQuickLog, onView, onDeleteTempl
           : templates.map(tpl => {
               const muscles   = [...new Set(tpl.entries.flatMap(e => { const ex = exercises.find(x => x.id === e.exerciseId); return ex?.muscles || []; }))];
               const tplSets   = tpl.entries.reduce((a, e) => a + e.sets.length, 0);
+              const tplWorkouts = workouts.filter(w => w.templateId === tpl.id && w.duration != null);
+              const avgDuration = tplWorkouts.length
+                ? Math.round(tplWorkouts.reduce((a, w) => a + Math.min(w.duration, MAX_WORKOUT_SECS), 0) / tplWorkouts.length)
+                : null;
               return React.createElement('div', { key: tpl.id, style: { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden" } },
                 React.createElement('div', { style: { padding: "14px 14px 10px" } },
                   React.createElement('div', { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 } },
@@ -109,7 +114,8 @@ function Log({ workouts, exercises, templates, onQuickLog, onView, onDeleteTempl
                   React.createElement('div', { style: { marginBottom: 8 } }, React.createElement(MusclePills, { muscles, max: 5 })),
                   React.createElement('div', { style: { display: "flex", gap: 14 } },
                     React.createElement('span', { style: { fontSize: 12, color: "var(--muted2)" } }, React.createElement('span', { style: { color: "var(--subtle)", fontWeight: 700 } }, tpl.entries.length), " exercises"),
-                    React.createElement('span', { style: { fontSize: 12, color: "var(--muted2)" } }, React.createElement('span', { style: { color: "var(--subtle)", fontWeight: 700 } }, tplSets), " sets")
+                    React.createElement('span', { style: { fontSize: 12, color: "var(--muted2)" } }, React.createElement('span', { style: { color: "var(--subtle)", fontWeight: 700 } }, tplSets), " sets"),
+                    avgDuration != null && React.createElement('span', { style: { fontSize: 12, color: "var(--muted2)" } }, "avg ", React.createElement('span', { style: { color: "var(--subtle)", fontWeight: 700 } }, fmtDurationShort(avgDuration)))
                   )
                 ),
                 React.createElement('div', { style: { padding: "10px 14px 14px" } },

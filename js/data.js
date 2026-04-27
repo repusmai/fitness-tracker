@@ -17,6 +17,7 @@ function loadData() {
       bodyweight:    parsed.bodyweight    || 80,
       templates:     parsed.templates     || [],
       preferredUnit: parsed.preferredUnit || 'kg',
+      showTimer:     parsed.showTimer !== undefined ? parsed.showTimer : true,
     };
   } catch (_) {
     return getDefaultData();
@@ -30,6 +31,7 @@ function getDefaultData() {
     bodyweight:    80,
     templates:     [],
     preferredUnit: 'kg',
+    showTimer:     true,
   };
 }
 
