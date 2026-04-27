@@ -149,9 +149,26 @@ function App() {
     setQuickLogMinimised(false);
   }
 
-  // ── Tab switching — clear detail/edit screens when leaving log ────────────
+  // ── Tab switching ─────────────────────────────────────────────────────────
+  // Preserve the log screen state when leaving, restore it when returning.
+  const savedScreen = React.useRef(null);
+  const savedActive = React.useRef(null);
+
   function switchTab(newTab) {
-    if (newTab !== "log" && screen) { setScreen(null); setActive(null); }
+    if (newTab === tab) return;
+    if (tab === "log" && screen) {
+      // Leaving log with a screen open — save it
+      savedScreen.current = screen;
+      savedActive.current = active;
+      setScreen(null);
+      setActive(null);
+    } else if (newTab === "log" && savedScreen.current) {
+      // Returning to log — restore saved screen
+      setScreen(savedScreen.current);
+      setActive(savedActive.current);
+      savedScreen.current = null;
+      savedActive.current = null;
+    }
     setTab(newTab);
   }
 
