@@ -64,7 +64,8 @@ function getLastSets(workouts, exerciseId) {
   });
   for (const workout of sorted) {
     const entry = workout.entries.find(e => e.exerciseId === exerciseId);
-    if (entry) return entry.sets;
+    // skip entries with no actual logged data (e.g. template-started workouts saved blank)
+    if (entry?.sets?.some(s => s.weight || s.reps)) return entry.sets;
   }
   return null;
 }
