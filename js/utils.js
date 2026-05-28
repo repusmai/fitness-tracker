@@ -4,7 +4,6 @@ const { useState, useEffect, useRef } = React;
 
 // ── Unit Conversion ───────────────────────────────────────────────────────────
 
-
 function convertWeight(value, fromUnit, toUnit) {
   if (fromUnit === toUnit) return value;
   return fromUnit === 'kg' ? value * KG_TO_LBS : value * LBS_TO_KG;
@@ -50,8 +49,8 @@ function countSetsWorkouts(workouts, exercises) {
 }
 
 /**
- * Returns the set data from the most recent workout that included a given exercise.
- * Used to pre-fill placeholder values in the set input rows.
+ * Returns set data from the most recent workout that included a given exercise,
+ * skipping entries with no logged data. Used as placeholder hints in set input rows.
  */
 function getLastSets(workouts, exerciseId) {
   const sorted = [...workouts].sort((a, b) => {
@@ -157,7 +156,7 @@ function templateToWorkout(template, preferredUnit) {
       unit: entry.unit || unit,
       sets: (entry.sets || []).map(set => ({
         ...set,
-        weight: '',  // don't pre-fill; placeholder shows last workout's weight
+        weight: '',  // cleared; placeholder comes from getLastSets
         reps:   '',
         rir:    '',
         unit: set.unit || unit,
@@ -189,7 +188,6 @@ function fmtDurationShort(secs) {
   if (h > 0) return `${h}h`;
   return `${m || 0}m`;
 }
-
 
 
 /**
