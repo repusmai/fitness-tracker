@@ -54,7 +54,14 @@ function countSetsWorkouts(workouts, exercises) {
  * Used to pre-fill placeholder values in the set input rows.
  */
 function getLastSets(workouts, exerciseId) {
-  const sorted = [...workouts].sort((a, b) => b.date.localeCompare(a.date));
+  const sorted = [...workouts].sort((a, b) => {
+    const da = a.date || '';
+    const db = b.date || '';
+    if (db > da) return 1;
+    if (db < da) return -1;
+    // same date: tiebreak by id (timestamp ms) so newer session wins
+    return (parseInt(b.id) || 0) - (parseInt(a.id) || 0);
+  });
   for (const workout of sorted) {
     const entry = workout.entries.find(e => e.exerciseId === exerciseId);
     if (entry) return entry.sets;
