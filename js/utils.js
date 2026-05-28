@@ -149,6 +149,9 @@ function templateToWorkout(template, preferredUnit) {
       unit: entry.unit || unit,
       sets: (entry.sets || []).map(set => ({
         ...set,
+        weight: '',  // don't pre-fill; placeholder shows last workout's weight
+        reps:   '',
+        rir:    '',
         unit: set.unit || unit,
         side: set.side || 'B',
       })),
