@@ -6,8 +6,10 @@ function StatsTab({ workouts, exercises, bodyweight, onSetBW, preferredUnit, onS
   const [displayUnit,    setDisplayUnit]    = React.useState(preferredUnit || "kg");
   const totalSets = countSetsWorkouts(workouts, exercises);
   const timedWorkouts = workouts.filter(w => w.duration != null);
-  const totalTimeSecs = timedWorkouts.reduce((a, w) => a + Math.min(w.duration, MAX_WORKOUT_SECS), 0);
-  const avgTimeSecs   = timedWorkouts.length ? Math.round(totalTimeSecs / timedWorkouts.length) : null;
+  const totalTimeSecs = timedWorkouts.reduce((a, w) => a + w.duration, 0);
+  const avgTimeSecs   = timedWorkouts.length
+    ? Math.round(timedWorkouts.reduce((a, w) => a + Math.min(w.duration, MAX_WORKOUT_SECS), 0) / timedWorkouts.length)
+    : null;
 
   function handleUnitToggle(unit) { setDisplayUnit(unit); onSetPreferredUnit(unit); }
 
@@ -54,8 +56,8 @@ function StatsTab({ workouts, exercises, bodyweight, onSetBW, preferredUnit, onS
             { label: "Total Sets", value: fmtSets(totalSets),                                                                         sub: "all time"    },
             { label: "Avg Sets",   value: workouts.length ? fmtSets(Math.round(totalSets / workouts.length * 10) / 10) : 0,           sub: "per session" },
             { label: "Exercises",  value: workouts.reduce((a, w) => a + w.entries.length, 0),                                         sub: "logged"      },
-            { label: "Avg Time",   value: avgTimeSecs != null ? fmtDurationShort(avgTimeSecs) : "—",                                  sub: "per session" },
-            { label: "Total Time", value: timedWorkouts.length ? fmtDurationShort(totalTimeSecs) : "—",                               sub: "all time"    },
+            { label: "Avg Time",   value: avgTimeSecs != null ? fmtDurationShort(avgTimeSecs) : "—",                                sub: "per session" },
+            { label: "Total Time", value: timedWorkouts.length ? fmtTotalDuration(totalTimeSecs) : "—",                             sub: "all time"    },
           ].map(s => React.createElement('div', { key: s.label, style: { background: "var(--surface)", borderRadius: 14, padding: "14px", border: "1px solid var(--border)" } },
             React.createElement('div', { style: { fontSize: 24, fontWeight: 900, color: "var(--text)" } }, s.value),
             React.createElement('div', { style: { fontSize: 12, fontWeight: 700, color: "var(--muted2)", marginTop: 2 } }, s.label),
