@@ -73,6 +73,20 @@ case "$BUMP" in
     NEW_VERSION="$SET_VER" ;;
 esac
 
+# ── Run tests before touching anything ───────────────────────────────────────
+TEST_FILE="$REPO_DIR/tests/run.js"
+if [ -f "$TEST_FILE" ]; then
+  echo "Running tests..."
+  if ! node "$TEST_FILE" 2>&1 | grep -E "^# (tests|pass|fail)"; then
+    echo "Error: test runner failed unexpectedly"; exit 1
+  fi
+  FAIL_COUNT=$(node "$TEST_FILE" 2>&1 | grep "^# fail" | grep -o '[0-9]*' || echo "0")
+  if [ "$FAIL_COUNT" != "0" ]; then
+    echo "✗ $FAIL_COUNT test(s) failed — aborting deploy"; exit 1
+  fi
+  echo "✓ All tests passed"
+fi
+
 sed -i "s/APP_VERSION = \"$CURRENT\"/APP_VERSION = \"$NEW_VERSION\"/" "$INDEX"
 sed -i "s/?v=[0-9]*\.[0-9]*\.[0-9]*/?v=$NEW_VERSION/g" "$INDEX"
 sed -i "s/__VERSION__/$NEW_VERSION/g" "$INDEX"
