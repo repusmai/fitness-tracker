@@ -1,4 +1,6 @@
 // ── Utility Functions ─────────────────────────────────────────────────────────
+// Pure utilities: unit conversion, date/number formatting, duration, React hooks.
+// Depends on: KG_TO_LBS, LBS_TO_KG from constants.js; React globals.
 
 const { useState, useEffect, useRef } = React;
 
@@ -21,7 +23,7 @@ function formatDate(isoDate) {
   return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-// ── Formatting Helpers ────────────────────────────────────────────────────────
+// ── Number Formatting ─────────────────────────────────────────────────────────
 
 function formatSets(count) {
   // Display numbers >= 1000 with a single decimal (e.g. 1.2k)
@@ -29,144 +31,11 @@ function formatSets(count) {
   return count;
 }
 
-// ── Workout / Set Calculations ────────────────────────────────────────────────
-
-/**
- * Counts completed sets (those with at least a weight or rep value)
- * across a list of workout entries.
- */
-function countSets(entries, exercises) {
-  return entries.reduce((total, entry) => {
-    const ex = exercises.find(e => e.id === entry.exerciseId);
-    const completedSets = entry.sets.filter(s => s.weight || s.reps).length;
-    return total + completedSets;
-  }, 0);
-}
-
-/** Sums completed sets across all workouts. */
-function countSetsWorkouts(workouts, exercises) {
-  return workouts.reduce((total, workout) => total + countSets(workout.entries, exercises), 0);
-}
-
-/**
- * Returns set data from the most recent workout that included a given exercise,
- * skipping entries with no logged data. Used as placeholder hints in set input rows.
- */
-function getLastSets(workouts, exerciseId) {
-  const sorted = [...workouts].sort((a, b) => {
-    const da = a.date || '';
-    const db = b.date || '';
-    if (db > da) return 1;
-    if (db < da) return -1;
-    // same date: tiebreak by id (timestamp ms) so newer session wins
-    return (parseInt(b.id) || 0) - (parseInt(a.id) || 0);
-  });
-  for (const workout of sorted) {
-    const entry = workout.entries.find(e => e.exerciseId === exerciseId);
-    // skip entries with no actual logged data (e.g. template-started workouts saved blank)
-    if (entry?.sets?.some(s => s.weight || s.reps)) return entry.sets;
-  }
-  return null;
-}
-
-// ── 1-Rep Max Estimation ──────────────────────────────────────────────────────
-
-/** Brzycki formula for estimated 1RM. */
-function estimate1RM(weight, reps) {
-  if (!weight || !reps || reps <= 0) return 0;
-  if (reps === 1) return weight;
-  return weight * (36 / (37 - reps));
-}
-
-/**
- * Finds the best estimated 1RM across all workouts for exercises
- * that match a given set of muscle groups.
- */
-function getBestByMuscles(workouts, exercises, muscles) {
-  let best = 0;
-  for (const workout of workouts) {
-    for (const entry of workout.entries) {
-      const ex = exercises.find(e => e.id === entry.exerciseId);
-      if (!ex?.muscles?.some(m => muscles.includes(m))) continue;
-      for (const set of entry.sets) {
-        const w = parseFloat(set.weight);
-        const r = parseInt(set.reps);
-        if (!w || !r) continue;
-        const rm = estimate1RM(w, r);
-        if (rm > best) best = rm;
-      }
-    }
-  }
-  return Math.round(best);
-}
-
-/** Builds the overall average 1RM history, one data point per workout date. */
-function getOverallAverage1RMHistory(workouts, exercises) {
-  if (!workouts.length) return [];
-  const sorted = [...workouts].sort((a, b) => a.date.localeCompare(b.date));
-  return sorted
-    .map((workout, index) => {
-      const upTo  = sorted.slice(0, index + 1);
-      const bests = MUSCLE_STANDARDS.map(s => getBestByMuscles(upTo, exercises, s.muscles)).filter(v => v > 0);
-      if (!bests.length) return null;
-      const avg = Math.round(bests.reduce((sum, v) => sum + v, 0) / bests.length);
-      return { date: workout.date, value: avg };
-    })
-    .filter(Boolean);
-}
-
-// ── Template Helpers ──────────────────────────────────────────────────────────
-
-/**
- * Converts a completed workout into a reusable template.
- * Weights are preserved; reps and RIR are cleared.
- */
-function workoutToTemplate(workout, name) {
-  return {
-    id:          `tpl_${Date.now()}`,
-    name:        name || workout.name,
-    createdFrom: workout.id,
-    unit:        workout.unit || 'kg',
-    entries:     workout.entries.map(entry => ({
-      ...entry,
-      sets: entry.sets.map(set => ({
-        ...set,
-        reps: '',
-        rir:  '',
-        side: set.side || 'B', // explicitly preserve side so it survives template instantiation
-      })),
-    })),
-  };
-}
-
-/**
- * Instantiates a template into a new workout object ready for editing.
- */
-function templateToWorkout(template, preferredUnit) {
-  const unit = template.unit || preferredUnit || 'kg';
-  return {
-    id:      Date.now().toString(),
-    date:    today(),
-    name:    template.name || 'Workout',
-    notes:   '',
-    unit,
-    entries: (template.entries || []).map((entry, index) => ({
-      ...entry,
-      _key: `${entry.exerciseId}_${index}_tpl`,
-      unit: entry.unit || unit,
-      sets: (entry.sets || []).map(set => ({
-        ...set,
-        weight: '',  // cleared; placeholder comes from getLastSets
-        reps:   '',
-        rir:    '',
-        unit: set.unit || unit,
-        side: set.side || 'B',
-      })),
-    })),
-  };
-}
+// Alias used throughout the codebase
+const fmtSets = formatSets;
 
 // ── Duration Formatting ───────────────────────────────────────────────────────
+
 const MAX_WORKOUT_SECS = 3 * 60 * 60; // 3 hours
 
 function fmtDuration(secs) {
@@ -189,20 +58,20 @@ function fmtDurationShort(secs) {
   return `${m || 0}m`;
 }
 
+// ── React Hooks ───────────────────────────────────────────────────────────────
 
 /**
  * Hides a fixed header when the user scrolls down, reveals it on scroll up.
  * Returns { ref, hidden } — attach ref to the scrollable container.
  */
 function useScrollHide(threshold = 8) {
-  const ref     = useRef(null);
+  const ref   = useRef(null);
   const [hidden, setHidden] = useState(false);
-  const lastY   = useRef(0);
+  const lastY = useRef(0);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-
     const onScroll = () => {
       const y = el.scrollTop;
       if (Math.abs(y - lastY.current) < threshold) return;
@@ -210,7 +79,6 @@ function useScrollHide(threshold = 8) {
       if (!nearBottom) setHidden(y > lastY.current && y > 50);
       lastY.current = y;
     };
-
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => el.removeEventListener('scroll', onScroll);
   }, []);
@@ -227,7 +95,6 @@ function useKeyboardHeight() {
 
   useEffect(() => {
     if (!window.visualViewport) return;
-
     const update = () => {
       const height = Math.max(
         0,
@@ -235,7 +102,6 @@ function useKeyboardHeight() {
       );
       setKeyboardHeight(height);
     };
-
     window.visualViewport.addEventListener('resize', update);
     window.visualViewport.addEventListener('scroll', update);
     return () => {
@@ -246,6 +112,3 @@ function useKeyboardHeight() {
 
   return keyboardHeight;
 }
-
-// Alias used throughout the codebase
-const fmtSets = formatSets;

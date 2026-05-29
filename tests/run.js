@@ -29,6 +29,8 @@ const sandbox = {
 const src = [
   fs.readFileSync(path.join(jsDir, 'constants.js'), 'utf8'),
   fs.readFileSync(path.join(jsDir, 'utils.js'),     'utf8'),
+  fs.readFileSync(path.join(jsDir, 'model.js'),     'utf8'),
+  fs.readFileSync(path.join(jsDir, 'strength.js'),  'utf8'),
   // export expression: evaluated in the same scope where all consts live
   `;({
     KG_TO_LBS, LBS_TO_KG, SIDE_OPTIONS,
